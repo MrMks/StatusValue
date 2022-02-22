@@ -1,4 +1,4 @@
-import com.github.mrmks.mc.status.utils.IntQueue;
+import com.github.mrmks.utils.IntQueue;
 import org.junit.jupiter.api.Test;
 
 public class UtilsTest {

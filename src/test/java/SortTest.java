@@ -1,4 +1,4 @@
-import com.github.mrmks.mc.status.utils.IntMap;
+import com.github.mrmks.utils.IntMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -54,6 +54,20 @@ class BuffManager<T> {
         }
     }
 
+    void stopAll() {
+        for (BuffTask[] ary : buffAry) {
+            if (ary != null) {
+                for (BuffTask task : ary) {
+                    if (task != null) {
+                        task.cancel(true);
+                    }
+                }
+                Arrays.fill(ary, null);
+            }
+        }
+        Arrays.fill(buffAry, null);
+    }
+
     // handled resource
     void addBuff(StatusEntity tar, StatusEntity src, BuffData data,
                  T tarE, T srcE, int interval, int count, int[] tarId, int[] tarVal, int[] srcId, int[] srcVal

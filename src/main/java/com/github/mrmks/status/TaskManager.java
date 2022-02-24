@@ -1,5 +1,6 @@
 package com.github.mrmks.status;
 
+import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
 
@@ -103,6 +104,15 @@ public class TaskManager {
             }
         }
         return true;
+    }
+
+    void stopAll() {
+        Iterator<Task[]> it = queue.iterator();
+        while (it.hasNext()) {
+            Task[] ary = it.next();
+            it.remove();
+            if (ary != null) Arrays.fill(ary, null);
+        }
     }
 
     public static abstract class Task {

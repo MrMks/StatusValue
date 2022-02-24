@@ -6,6 +6,7 @@ import com.github.mrmks.status.adapt.IEntityDataAccessor;
 import com.github.mrmks.status.api.*;
 import com.github.mrmks.status.api.SimpleDependency;
 import com.github.mrmks.utils.IntMap;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -25,8 +26,8 @@ public class Tests {
     private class HealthResource implements IResource<PlayerEntity> {
 
         @Override
-        public void update(PlayerEntity entity, int prev, int changed) {
-            entity.health = prev + changed;
+        public void update(PlayerEntity entity, int prev, int now) {
+            entity.health = now;
         }
 
         @Override
@@ -72,6 +73,11 @@ public class Tests {
         @Override
         public Updater valueUpdater() {
             return null;
+        }
+
+        @Override
+        public boolean canStepZero() {
+            return false;
         }
     }
 
@@ -217,43 +223,43 @@ public class Tests {
         }
 
         @Override
-        public OptionalInt getValue(byte[] entityKey, int resourceId) {
-            return null;
-        }
-
-        @Override
-        public void writeValue(byte[] entityKey, int[] values) {
-
-        }
-
-        @Override
-        public void writeValue(byte[] entityKey, int resourceId, int value) {
-
-        }
-
-        @Override
-        public int[][] getStore(byte[] entityKey) {
-            return new int[0][];
-        }
-
-        @Override
-        public void writeStore(byte[] entityKey, int[][] store) {
-
-        }
-
-        @Override
-        public void writeStore(byte[] entityKey, int id, int[] val) {
-
-        }
-
-        @Override
         public IEntityDataAccessor withEntity(byte[] entityKey) {
-            return null;
-        }
+            return new IEntityDataAccessor() {
+                @Override
+                public OptionalInt getValue(int resourceId) {
+                    return OptionalInt.of(0);
+                }
 
-        @Override
-        public void flushEntity(byte[] entityKey) {
+                @Override
+                public void writeValue(int resourceId, int value) throws IOException {
 
+                }
+
+                @Override
+                public void writeValue(int[] values) throws IOException {
+
+                }
+
+                @Override
+                public int[][] getStore() {
+                    return new int[0][];
+                }
+
+                @Override
+                public void writeStore(int id, int[] store) throws IOException {
+
+                }
+
+                @Override
+                public void writeStore(int[][] store) throws IOException {
+
+                }
+
+                @Override
+                public void flushAndClose() throws IOException {
+
+                }
+            };
         }
 
         @Override
@@ -279,7 +285,7 @@ public class Tests {
         PlayerEntity self = new PlayerEntity(), enemy = new PlayerEntity();
         enemy.id = 1;
         self.defence = 2;
-        enemy.attack = 7;
+        enemy.attack = 23;
         convert.map.put(0, self);
         convert.map.put(1, enemy);
         statusMain.createEntity(self, false);
@@ -289,6 +295,8 @@ public class Tests {
         if (mid >= 0) {
             statusMain.startTransaction(enemy, self).modify(mid, null);
         }
-        for (int i = 0; i < 5; i++) statusMain.tick();
+        Assertions.assertEquals(0, self.health);
+        for (int i = 0; i < 50; i++) statusMain.tick();
+        Assertions.assertEquals(0, self.health);
     }
 }

@@ -19,7 +19,9 @@ class ModificationTable implements ModificationCache {
     private int srcLe, tarLe, srcLa, tarLa, srcLai, tarLai;
     final LinkedList<BuffCache> buffCaches;
 
-    ModificationTable(StatusTable.Readonly src, StatusTable.Readonly tar, int size) {
+    private final boolean srcSystem;
+
+    ModificationTable(StatusTable.Readonly src, StatusTable.Readonly tar, int size, boolean srcSystem) {
         this.src = src;
         this.tar = tar;
         this.srcId = new IntArray(8);
@@ -27,7 +29,13 @@ class ModificationTable implements ModificationCache {
         this.srcVal = new IntArray(8);
         this.tarVal = new IntArray(8);
         this.size = size;
+        this.srcSystem = srcSystem;
         this.buffCaches = new LinkedList<>();
+    }
+
+    @Override
+    public boolean isSrcSystem() {
+        return srcSystem;
     }
 
     @Override

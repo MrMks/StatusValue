@@ -77,7 +77,7 @@ public class HandlerList<T> {
                     if (bc.adding) {
                         // add buff
                         assert bc.args != null && bc.idTar != null;
-                        if (bc.reverse) {
+                        if (bc.reverse && srcI != 0) {
                             src = tar;
                             tar = entry.src;
 
@@ -116,7 +116,7 @@ public class HandlerList<T> {
                         }
                     } else {
                         // remove buff
-                        if (bc.reverse) {
+                        if (bc.reverse && srcI != 0) {
                             srcI = tarI;
                             tarI = entry.srcI;
                         }
@@ -153,9 +153,21 @@ public class HandlerList<T> {
         return trImpl;
     }
 
-    /*
-     * This method should only be invoked by modifier buff.
+    /**
+     * For system to do modifications on entity
      */
+    Transaction beginTransaction(T tar) {
+        if (!sessionControl.isInSession()) clearQueue();
+        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
+
+        int tarI = entityManager.findEntityIndex(tar);
+        if (tarI < 0) throw new IllegalArgumentException();
+
+        TransactionImpl trImpl = new TransactionImpl(null, tar, 0, tarI, sessionId);
+        queuedTransactions.add(trImpl);
+        return trImpl;
+    }
+
     Transaction beginTransaction(int src, int tar, T srcE, T tarE) {
         if (!sessionControl.isInSession()) clearQueue();
         if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
@@ -204,14 +216,15 @@ public class HandlerList<T> {
                             int mId, int[] mVal, IntMap<int[]> hParams) {
         sessionControl.beginHandler();
         WrappedHandler[] whs = handlerAry.get(mId);
+        if (mVal == null) mVal = Constants.EMPTY_ARY_INT;
         if (whs != null) {
-            EventImpl mEvent = new EventImpl(src, tar, srcR, tarR, mVal);
+            EventImpl mEvent = new EventImpl(src, tar, srcI, tarI, srcR, tarR, mVal);
             for (WrappedHandler wh : whs) {
                 wh.handle((short) mId, mEvent, hParams.getOrDefault(wh.paramIndex, Constants.EMPTY_ARY_INT));
             }
         }
         sessionControl.beginModifier();
-        ModificationTable mTable = new ModificationTable(srcR, tarR, resourceSize);
+        ModificationTable mTable = new ModificationTable(srcR, tarR, resourceSize, srcI == 0);
         WrappedModifier wm = modifierAry[mId];
         wm.handle(mVal, mTable, sessionId, entityManager.getModifierStore(srcI, wm.dataIndex), entityManager.getModifierStore(tarI, wm.dataIndex));
         mTable.trimToSize();
@@ -220,18 +233,26 @@ public class HandlerList<T> {
 
     private class EventImpl implements ModificationEvent {
         private final T srcRf, tarRf;
+        private final int srcI, tarI;
         private final StatusTable.Readonly src, tar;
         private final int[] init, values, cache;
         private boolean cancel = false;
 
-        EventImpl(T srcRf, T tarRf, StatusTable.Readonly _src, StatusTable.Readonly _tar, int[] _value) {
+        EventImpl(T srcRf, T tarRf, int srcI, int tarI, StatusTable.Readonly _src, StatusTable.Readonly _tar, int[] _value) {
             this.srcRf = srcRf;
             this.tarRf = tarRf;
+            this.srcI = srcI;
+            this.tarI = tarI;
             this.init = _value;
             this.values = Arrays.copyOf(_value, _value.length);
             this.cache = new int[_value.length];
             this.src = _src;
             this.tar = _tar;
+        }
+
+        @Override
+        public boolean isSrcSystem() {
+            return srcI == 0;
         }
 
         @Override
@@ -269,7 +290,7 @@ public class HandlerList<T> {
 
         @Override
         public Transaction beginTransaction(boolean reserve) {
-            return reserve ? HandlerList.this.beginTransaction(tarRf, srcRf) : HandlerList.this.beginTransaction(srcRf, tarRf);
+            return reserve && srcI != 0 ? HandlerList.this.beginTransaction(tarI, srcI, tarRf, srcRf) : HandlerList.this.beginTransaction(srcI, tarI, srcRf, tarRf);
         }
 
         @Override

@@ -4,8 +4,8 @@ import com.github.mrmks.status.adapt.IDataAccessor;
 import com.github.mrmks.status.adapt.IEntityConvert;
 import com.github.mrmks.status.adapt.IGuiCallback;
 import com.github.mrmks.status.adapt.ILogger;
-import com.github.mrmks.status.api.IExtension;
 import com.github.mrmks.status.api.BuffType;
+import com.github.mrmks.status.api.IExtension;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -80,6 +80,8 @@ public class StatusMain<T> {
                 throw new IllegalStateException("You must setup StatusValue before you call other methods");
             } else if (state == STATE.INIT || state == STATE.INSTANCE) {
                 throw new IllegalStateException("StatusValue run into error while initializing");
+            } else if (state == STATE.STOPPING || state == STATE.STOPPED) {
+                throw new IllegalStateException("Outdated instance, please create a new instance");
             }
         }
     }
@@ -158,12 +160,11 @@ public class StatusMain<T> {
         chkRunning();
     }
 
-
-
     public void stop() {
         if (state == STATE.RUNNING) {
             state = STATE.STOPPING;
-
+            taskManager.stopAll();
+            entityManager.stopAll();
             state = STATE.STOPPED;
         }
     }
@@ -200,6 +201,17 @@ public class StatusMain<T> {
         @Override
         public void severe(String msg) {
             if (logger != null) logger.severe(msg);
+            else System.out.println(msg);
+        }
+
+        @Override
+        public void severe(String msg, Throwable tr) {
+            if (logger != null) {
+                logger.severe(msg, tr);
+            } else {
+                System.out.println(msg);
+                tr.printStackTrace(System.err);
+            }
         }
 
         @Override

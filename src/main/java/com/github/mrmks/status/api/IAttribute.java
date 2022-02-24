@@ -1,7 +1,5 @@
 package com.github.mrmks.status.api;
 
-import org.jetbrains.annotations.Nullable;
-
 /**
  * The interface for attributes.
  *
@@ -15,6 +13,6 @@ public interface IAttribute<T> {
      */
     String getName();
 
-    void update(@Nullable T entity, int prev, int now);
+    void update(T entity, int prev, int now);
 
 }

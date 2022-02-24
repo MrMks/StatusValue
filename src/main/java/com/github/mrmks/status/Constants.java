@@ -13,8 +13,6 @@ public class Constants {
     public static final String SUFFIX_BOUND = ":b";
 
     // attribute flags
-    @Deprecated public static final byte FLAG_SINGLE = 0x10;
-    @Deprecated public static final byte FLAG_STORE = 0x08;
     public static final byte FLAG_ATTRIBUTE = 0x0;
     public static final byte FLAG_RESOURCE = 0x01;
     public static final byte FLAG_SPECIAL = 0x02;

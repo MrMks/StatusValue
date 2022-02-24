@@ -46,6 +46,18 @@ public class StatusTable {
         return r;
     }
 
+    void copy(int[] copied) {
+        int i = 0, j = 0, l, size = copied.length;
+        int[] d = data[i];
+        while (j < size) {
+            l = Math.min(size - j, d.length);
+            System.arraycopy(d, 0, copied, j, l);
+            j += l;
+            ++i;
+            d = data[i];
+        }
+    }
+
     Readonly readonly() {
         int[][] copied = new int[data.length][];
         for (int i = 0; i < data.length; i++) {

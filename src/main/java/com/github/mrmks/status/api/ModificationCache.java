@@ -1,6 +1,9 @@
 package com.github.mrmks.status.api;
 
 public interface ModificationCache {
+
+    boolean isSrcSystem();
+
     int getSrc(int id);
     int getTar(int id);
 

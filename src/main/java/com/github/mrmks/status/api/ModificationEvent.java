@@ -3,6 +3,9 @@ package com.github.mrmks.status.api;
 import com.github.mrmks.status.Transaction;
 
 public interface ModificationEvent {
+
+    boolean isSrcSystem();
+
     int[] value();
     int[] initValue();
 

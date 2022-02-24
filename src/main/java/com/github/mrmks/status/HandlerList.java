@@ -68,26 +68,26 @@ public class HandlerList<T> {
                 int srcI = entry.srcI, tarI = entry.tarI;
                 ModificationTable mt = entry.mTable;
 
-                if (!entityManager.testEntity(src, srcI) || !entityManager.testEntity(tar, tarI)) {
+                if (tarI == 0 || !entityManager.testEntity(src, srcI) || !entityManager.testEntity(tar, tarI)) {
                     iterator.remove();
                     continue;
                 }
 
                 for (ModificationTable.BuffCache bc : entry.mTable.buffCaches) {
+                    if (bc.reverse && srcI != 0) {
+                        src = tar;
+                        tar = entry.src;
+
+                        srcI = tarI;
+                        tarI = entry.srcI;
+                    }
                     if (bc.adding) {
                         // add buff
                         assert bc.args != null && bc.idTar != null;
-                        if (bc.reverse && srcI != 0) {
-                            src = tar;
-                            tar = entry.src;
-
-                            srcI = tarI;
-                            tarI = entry.srcI;
-                        }
                         if (bc.attributeOrOnce) {
                             // attribute buff
                             entityManager.applyAttribute(tar, tarI, bc.idTar, bc.valTar);
-                            entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
+                            if (srcI != 0) entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
                             buffManager.addBuff(
                                     entityManager.getEntity(tarI),
                                     entityManager.getEntity(srcI),
@@ -116,17 +116,13 @@ public class HandlerList<T> {
                         }
                     } else {
                         // remove buff
-                        if (bc.reverse && srcI != 0) {
-                            srcI = tarI;
-                            tarI = entry.srcI;
-                        }
                         buffManager.removeBuff(
                                 entityManager.getEntity(tarI),
                                 bc.type, bc.key, bc.tag, entityManager.getEntityKey(srcI), bc.anySource, bc.attributeOrOnce, bc.canRemoveOrForce);
                     }
                 }
-                entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
                 entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
+                if (srcI != 0) entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
                 iterator.remove();
             }
 

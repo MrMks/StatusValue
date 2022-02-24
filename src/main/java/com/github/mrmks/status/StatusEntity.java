@@ -1,6 +1,5 @@
 package com.github.mrmks.status;
 
-import com.github.mrmks.status.api.BuffType;
 import com.github.mrmks.utils.IntQueue;
 
 import java.util.Arrays;
@@ -34,10 +33,15 @@ class StatusEntity {
     }
 
     int[] getData(int dataIndex) {
-        return dataIndex < 0 ? Constants.EMPTY_ARY_INT : data[dataIndex];
+        if (id != 0 && dataIndex >= 0 && dataIndex < data.length) {
+            int[] re = data[dataIndex];
+            if (re != null) return re;
+        }
+        return Constants.EMPTY_ARY_INT;
     }
 
     int assignBuffId(int id) {
+        if (this.id == 0) throw new RuntimeException("Can't assign buff id for system entity");
         int r;
         if (refreshedBuff.isEmpty()) {
             if (buffSize >= buffs.length) {
@@ -54,18 +58,10 @@ class StatusEntity {
     }
 
     void freeBuffId(int id) {
+        if (this.id == 0) throw new RuntimeException("Can't free buff id for system entity");
         if (id >= buffSize || buffs[id] < 0) return;
         buffs[id] = -1;
         if (id + 1 == buffSize) buffSize -= 1; else refreshedBuff.offer(id);
     }
 
-    @Deprecated
-    void addBuff(BuffData data, TaskManager.Task task) {
-
-    }
-
-    @Deprecated
-    void removeBuff(BuffType type, byte[] src, String str, boolean asKey, boolean force, boolean any) {
-
-    }
 }

@@ -165,7 +165,7 @@ class EntityManager<T> {
         if (sessionControl.shouldDenyEntityModify()) throw new IllegalStateException();
 
         int index = findEntityIndex(entity);
-        removeEntity(index);
+        if (index > 0) removeEntity(index);
     }
 
     private void removeEntity(int index) {
@@ -174,6 +174,7 @@ class EntityManager<T> {
     }
 
     private boolean removeEntity(StatusEntity se) {
+        if (se.id == 0) throw new RuntimeException("Can't remove system entity");
         if (se.buffRefCount > 0) {
             if (!se.offline) {
                 se.offline = true;
@@ -189,6 +190,7 @@ class EntityManager<T> {
     }
 
     private boolean removeEntity0(StatusEntity se) {
+        if (se.id == 0) throw new RuntimeException("Can't remove system entity");
         if (se.shouldSave) {
             StatusTable table = se.table;
             IEntityDataAccessor da;
@@ -228,7 +230,8 @@ class EntityManager<T> {
 
     void stopAll() {
         int[] val = new int[resourceSize];
-        for (int i = 0; i < nextIndex; i++) {
+        // since entityMap[0] is the system entity, we start at 1;
+        for (int i = 1; i < nextIndex; i++) {
             StatusEntity se = entityMap[i];
             if (se != null) {
                 se.resourceTask.cancel(true);
@@ -270,6 +273,7 @@ class EntityManager<T> {
     }
 
     void reduceEntityRef(int id) {
+        if (id == 0) return;
         StatusEntity se = getEntity(id);
         if (se != null && se.buffRefCount > 0) {
             --se.buffRefCount;
@@ -322,6 +326,7 @@ class EntityManager<T> {
     }
 
     private void applyResource0(StatusEntity se, T entity, int[] id, int[] val, boolean step) {
+        if (se.id == 0) return;
         boolean direct = !se.offline && entity != null && Arrays.equals(convert.toBytes(entity), se.storeKey);
         StatusTable table = se.table;
 
@@ -348,9 +353,9 @@ class EntityManager<T> {
         }
     }
 
-    void applyAttribute(T entity, int index, int[] id, int[] val) {
-        if (id == null || val == null || id.length != val.length || id.length == 0) return;
-        StatusEntity se = getEntity(index);
+    void applyAttribute(T entity, int eid, int[] id, int[] val) {
+        if (id == null || val == null || id.length != val.length || id.length == 0 || eid == 0) return;
+        StatusEntity se = getEntity(eid);
         if (se == null) return;
         entity = entity == null ? convert.fromBytes(se.storeKey) : entity;
         boolean directUpdate = !se.offline && entity != null;
@@ -401,6 +406,7 @@ class EntityManager<T> {
     }
 
     StatusTable.Readonly createReadonly(int index) {
+        if (index == 0) return null;
         StatusEntity se = getEntity(index);
         if (se != null) {
             return se.table.readonly();
@@ -419,7 +425,7 @@ class EntityManager<T> {
     }
 
     byte[] getEntityKey(int index) {
-        StatusEntity se = entityMap[index];
+        StatusEntity se = getEntity(index);
         return se == null ? null : se.storeKey;
     }
 
@@ -427,6 +433,7 @@ class EntityManager<T> {
         int size = removingQueue.size();
         for (int i = 0; i < size; ++i) {
             int j = removingQueue.remove();
+            if (j == 0) continue;
             StatusEntity se = getEntity(j);
             if (se != null && !removeEntity(se)) {
                 removingQueue.offer(j);

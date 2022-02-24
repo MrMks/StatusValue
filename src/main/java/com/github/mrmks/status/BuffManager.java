@@ -54,20 +54,6 @@ class BuffManager<T> {
         }
     }
 
-    void stopAll() {
-        for (BuffTask[] ary : buffAry) {
-            if (ary != null) {
-                for (BuffTask task : ary) {
-                    if (task != null) {
-                        task.cancel(true);
-                    }
-                }
-                Arrays.fill(ary, null);
-            }
-        }
-        Arrays.fill(buffAry, null);
-    }
-
     // handled resource
     void addBuff(StatusEntity tar, StatusEntity src, BuffData data,
                  T tarE, T srcE, int interval, int count, int[] tarId, int[] tarVal, int[] srcId, int[] srcVal
@@ -79,12 +65,12 @@ class BuffManager<T> {
         if (tarId == null && srcId == null) return;
 
         if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit) count = -1;
-        if (count > 0) src.buffRefCount++;
+        if (count > 0 && src.id > 0) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
         if (task != null) {
-            int sA = srcId == null ? 0 : srcId.length;
+            int sA = srcId == null || src.id == 0 ? 0 : srcId.length;
             int sB = tarId == null ? 0 : tarId.length;
 
             int[] args = new int[sA + sB + 2];
@@ -105,6 +91,10 @@ class BuffManager<T> {
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
 
+            if (src.id == 0) {
+                srcId = srcVal = Constants.EMPTY_ARY_INT;
+            }
+
             task = new HandledResourceBuff(tar.id, ebid, src.id, tar.storeKey, src.storeKey, data,
                     interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
 
@@ -113,12 +103,13 @@ class BuffManager<T> {
 
     }
 
+    // modifier buff
     void addBuff(StatusEntity tar, StatusEntity src, BuffData data, T tarE, T srcE, int interval, int count, int id, int[] val) {
 
         if (interval < 0 || count == 0 || !handlerList.isModifierValid(id)) return;
         if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit)
             count = -1;
-        if (count > 0) src.buffRefCount++;
+        if (count > 0 && src.id > 0) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
@@ -141,6 +132,7 @@ class BuffManager<T> {
         }
     }
 
+    // attribute buff
     void addBuff(StatusEntity tar, StatusEntity src, BuffData data,
                  T tarE, T srcE, int duration, int[] tarId, int[] tarVal, int[] srcId, int[] srcVal
     ) {
@@ -151,7 +143,7 @@ class BuffManager<T> {
         if (tarId == null && srcId == null) return;
 
         if (duration < 0 || duration >= maximumTickLimit) duration = -1;
-        if (duration > 0) src.buffRefCount++;
+        if (duration > 0 && src.id > 0) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
@@ -159,7 +151,7 @@ class BuffManager<T> {
         int interval = duration < 0 ? Integer.MAX_VALUE : duration;
 
         if (task != null) {
-            int sA = srcId == null ? 0 : srcId.length;
+            int sA = srcId == null || src.id == 0 ? 0 : srcId.length;
             int sB = tarId == null ? 0 : tarId.length;
 
             int[] args = new int[sA + sB + 2];
@@ -179,6 +171,11 @@ class BuffManager<T> {
         } else {
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
+
+            if (src.id == 0 && srcId.length != 0) {
+                srcId = Constants.EMPTY_ARY_INT;
+                srcVal = Constants.EMPTY_ARY_INT;
+            }
 
             task = new AttributeBuff(tar.id, ebid, src.id, tar.storeKey, src.storeKey, data,
                     interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
@@ -218,22 +215,6 @@ class BuffManager<T> {
                 }
             }
         }
-    }
-
-    void removeBuffAll(StatusEntity se) {
-        int count = 0;
-        for (int id : se.buffs) {
-            BuffTask bt = getBuff(id, se.id, count);
-            if (bt != null) {
-                bt.cancel(true);
-                bt.onRemove();
-                emptyBuff(id);
-            }
-            ++count;
-        }
-        Arrays.fill(se.buffs, -1);
-        se.refreshedBuff.clear();
-        se.buffSize = 0;
     }
 
     private BuffTask matchBuff(StatusEntity se, BuffData data, byte[] src) {
@@ -377,10 +358,10 @@ class BuffManager<T> {
         @Override
         protected void runLogic() {
             T src = srcE.get(), tar = tarE.get();
-            if (src != null && srcId != null && srcVal != null) {
+            if (src != null && srcId != null && srcVal != null && srcId.length > 0) {
                 entityManager.applyResource(src, eidSrc, srcId, srcVal);
             }
-            if (tar != null && tarId != null && tarVal != null) {
+            if (tar != null && tarId != null && tarVal != null && tarId.length > 0) {
                 entityManager.applyResource(tar, eidTar, tarId, tarVal);
             } else {
                 cancel(true);
@@ -424,6 +405,19 @@ class BuffManager<T> {
         @Override
         void runLogic() {
             T tar = this.tar.get(), src = this.src.get();
+            StatusEntity se = entityManager.getEntity(eidTar);
+            if (se == null) {
+                cancel(true);
+                return;
+            }
+            if (eidSrc != 0) {
+                se = entityManager.getEntity(eidSrc);
+                if (se == null) {
+                    cancel(true);
+                    return;
+                }
+            }
+
             handlerList.beginTransaction(eidSrc, eidTar, src, tar).modify(id, val);
         }
 
@@ -459,10 +453,10 @@ class BuffManager<T> {
         void runLogic() {
             if (!second) second = true;
             else {
-                if (tarId != null) {
+                if (tarId != null && tarId.length > 0) {
                     entityManager.applyAttribute(tar.get(), eidTar, tarId, tarVal);
                 }
-                if (srcId != null) {
+                if (srcId != null && srcId.length > 0) {
                     entityManager.applyAttribute(src.get(), eidSrc, srcId, srcVal);
                 }
             }

@@ -120,6 +120,11 @@ public class StatusMain<T> {
         return handlerList.beginTransaction(src, tar);
     }
 
+    public Transaction startTransaction(T tar) {
+        chkRunning();
+        return handlerList.beginTransaction(tar);
+    }
+
     // -------- update provider --------
     public int updateProvider(T e, String key) {
         chkRunning();

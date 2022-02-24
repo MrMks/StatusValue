@@ -50,6 +50,7 @@ class ModificationTable implements ModificationCache {
 
     @Override
     public void modifySrc(int id, int val) {
+        if (srcSystem) return;
         int i = modify(id, val, srcLa, srcLai, srcLe, srcId, srcVal);
         if (i >= 0) {
             srcLa = id;
@@ -70,21 +71,31 @@ class ModificationTable implements ModificationCache {
 
     @Override
     public void buffAttribute(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int duration, boolean anySource, boolean canRemove, boolean reverse) {
+        if (srcSystem) {
+            if (reverse) return;
+            idSrc = valSrc = Constants.EMPTY_ARY_INT;
+        }
         buffCaches.add(new BuffCache(key, tag, icon, type, idTar, valTar, idSrc, valSrc, duration, anySource, canRemove, reverse));
     }
 
     @Override
     public void buffResource(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
+        if (srcSystem) {
+            if (reverse) return;
+            idSrc = valSrc = Constants.EMPTY_ARY_INT;
+        }
         buffCaches.add(new BuffCache(key, tag, icon, type, idTar, valTar, idSrc, valSrc, interval, count, anySource, canRemove, false, reverse));
     }
 
     @Override
     public void buffResource(String key, String tag, String icon, BuffType type, int id, int[] val, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
+        if (srcSystem && reverse) return;
         buffCaches.add(new BuffCache(key, tag, icon, type, new int[]{id}, val, null, null, interval, count, anySource, canRemove, false, reverse));
     }
 
     @Override
     public void removeBuffSrc(BuffType type, String key, String tag, boolean anySource, boolean once, boolean force) {
+        if (srcSystem) return;
         buffCaches.add(new BuffCache(type, key, tag, anySource, once, force, true));
     }
 
@@ -120,8 +131,6 @@ class ModificationTable implements ModificationCache {
     }
 
     static class BuffCache {
-        // if bool[0] is true, this means attaching some buff to someone. the next 5 bool means reverse, anySource, toAttribute, canRemove and asSource.
-        // if else, this means removing some buff from someone. the next 4 bool means toSrc, anySource, once, force;
         final boolean adding, reverse, anySource, attributeOrOnce, canRemoveOrForce, asSource;
         final BuffType type;
         final String key, tag, icon;

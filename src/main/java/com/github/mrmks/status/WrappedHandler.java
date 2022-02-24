@@ -9,6 +9,7 @@ class WrappedHandler {
 
     final String name;
     final IHandler handler;
+    final boolean handleCanceled;
 
     short[] aIds;
     short[] mIds;
@@ -16,8 +17,9 @@ class WrappedHandler {
     int paramIndex;
 
     WrappedHandler(String n, IHandler h) {
-        this.handler = h;
         this.name = n;
+        this.handler = h;
+        this.handleCanceled = h.handleCanceled();
     }
 
     void handle(short modifierId, ModificationEvent event, int[] params) {

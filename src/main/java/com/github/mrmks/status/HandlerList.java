@@ -216,7 +216,8 @@ public class HandlerList<T> {
         if (whs != null) {
             EventImpl mEvent = new EventImpl(src, tar, srcI, tarI, srcR, tarR, mVal);
             for (WrappedHandler wh : whs) {
-                wh.handle((short) mId, mEvent, hParams.getOrDefault(wh.paramIndex, Constants.EMPTY_ARY_INT));
+                if (wh.handleCanceled)
+                    wh.handle((short) mId, mEvent, hParams.getOrDefault(wh.paramIndex, Constants.EMPTY_ARY_INT));
             }
         }
         sessionControl.beginModifier();

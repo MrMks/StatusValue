@@ -375,7 +375,10 @@ class EntityManager<T> {
     }
 
     int findEntityIndex(T entity) {
-        return entity == null ? -1 : findEntityIndex(convert.toBytes(entity));
+        if (entity == null) return -1;
+        byte[] bytes = convert.toBytes(entity);
+        if (bytes == null || bytes.length == 0) throw new IllegalStateException("Your IEntityConvert implementation returned a null or empty byte array, which is prohibited");
+        return indexConvert.getOrDefault(bytes, -1);
     }
 
     private int findEntityIndex(byte[] bytes) {

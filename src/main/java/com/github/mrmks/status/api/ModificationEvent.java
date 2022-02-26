@@ -5,6 +5,7 @@ import com.github.mrmks.status.Transaction;
 public interface ModificationEvent {
 
     boolean isSrcSystem();
+    boolean isSelfModify();
 
     int[] value();
     int[] initValue();

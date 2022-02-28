@@ -55,95 +55,102 @@ class BuffManager<T> {
     }
 
     // handled resource
-    void addBuff(StatusEntity tar, StatusEntity src, BuffData data,
-                 T tarE, T srcE, int interval, int count, int[] tarId, int[] tarVal, int[] srcId, int[] srcVal
-    ) {
-
-        if (count == 0 || interval < 0) return;
-        if (tarId == null || tarVal == null || tarId.length != tarVal.length) tarId = tarVal = null;
-        if (srcId == null || srcVal == null || srcId.length != srcVal.length) srcId = srcVal = null;
-        if (tarId == null && srcId == null) return;
-
-        if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit) count = -1;
-        if (count > 0 && src.id > 0) src.buffRefCount++;
-
-        BuffTask task = matchBuff(tar, data, src.storeKey);
-
-        if (task != null) {
-            int sA = srcId == null || src.id == 0 ? 0 : srcId.length;
-            int sB = tarId == null ? 0 : tarId.length;
-
-            int[] args = new int[sA + sB + 2];
-
-            args[0] = sA;
-            args[1] = sB;
-            if (sA > 0) {
-                System.arraycopy(srcId, 0, args, 2, sA);
-                System.arraycopy(srcVal, 0, args, 2 + sA, sA);
-            }
-            if (sB > 0) {
-                System.arraycopy(tarId, 0, args, 2 + (sA << 1), sB);
-                System.arraycopy(tarVal, 0, args, 2 + (sA << 1) + sB, sB);
-            }
-
-            expandTask(task, data, srcE, src.storeKey, src.id, interval, count, args);
-        } else {
-            int bid = nextId();
-            int ebid = tar.assignBuffId(bid);
-
-            if (src.id == 0) {
-                srcId = srcVal = Constants.EMPTY_ARY_INT;
-            }
-
-            task = new HandledResourceBuff(tar.id, ebid, src.id, tar.storeKey, src.storeKey, data,
-                    interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
-
-            addBuff0(bid, task);
-        }
-
-    }
-
-    // modifier buff
-    void addBuff(StatusEntity tar, StatusEntity src, BuffData data, T tarE, T srcE, int interval, int count, int id, int[] val) {
-
+    void addBuffModifier(int srcI, int tarI, BuffData data, T srcE, T tarE, int interval, int count, int id, int[] val) {
         if (interval < 0 || count == 0 || !handlerList.isModifierValid(id)) return;
-        if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit)
-            count = -1;
-        if (count > 0 && src.id > 0) src.buffRefCount++;
+
+        boolean selfMod = srcI == tarI;
+        StatusEntity src = entityManager.getEntity0(srcI);
+        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
+
+        if (count < 0 || count > maximumTickLimit || count + interval * interval >= maximumTickLimit) count = -1;
+        else if (srcI > 0 && !selfMod) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
         if (task != null) {
             int l = val == null ? 0 : val.length;
-
             int[] args = new int[2 + l];
             args[0] = id;
             args[1] = l;
             if (l > 0) System.arraycopy(val, 0, args, 2, l);
 
-            expandTask(task, data, srcE, src.storeKey, src.id, interval, count, args);
+            expandTask(task, data, srcE, src.storeKey, srcI, interval, count, args);
         } else {
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
 
-            task = new SourceResourceBuff(tar.id, ebid, src.id, tar.storeKey, src.storeKey, data, interval, count, tarE, srcE, id, val == null ? Constants.EMPTY_ARY_INT : val);
+            task = new SourceResourceBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data, interval, count, tarE, srcE, id, val == null ? Constants.EMPTY_ARY_INT : val);
 
             addBuff0(bid, task);
         }
     }
 
-    // attribute buff
-    void addBuff(StatusEntity tar, StatusEntity src, BuffData data,
-                 T tarE, T srcE, int duration, int[] tarId, int[] tarVal, int[] srcId, int[] srcVal
-    ) {
+    void addBuffResource(int srcI, int tarI, BuffData data, T srcE, T tarE, int interval, int count, int[] srcId, int[] srcVal, int[] tarId, int[] tarVal) {
+        if (tarI == 0 || interval < 0 || count == 0 ) return;
+        boolean selfMod = srcI == tarI;
+        int sizeSrc = checkIdAndVal(srcId, srcVal, true);
+        int sizeTar = selfMod ? 0 : checkIdAndVal(tarId, tarVal, true);
 
-        if (duration == 0) return;
-        if (tarId == null || tarVal == null || tarId.length != tarVal.length || tarId.length == 0) tarId = tarVal = null;
-        if (srcId == null || srcVal == null || srcId.length != srcVal.length || srcId.length == 0) srcId = srcVal = null;
-        if (tarId == null && srcId == null) return;
+        if ((sizeSrc ^ sizeTar) == 0) return;
+
+        StatusEntity src = entityManager.getEntity0(srcI);
+        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
+
+        if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit) count = -1;
+        else if (srcI > 0 && !selfMod) src.buffRefCount++;
+
+        BuffTask task = matchBuff(tar, data, src.storeKey);
+        if (task != null) {
+            int[] args = new int[sizeSrc + sizeTar + 2];
+            args[0] = sizeSrc;
+            args[1] = sizeTar;
+
+            if (sizeSrc > 0) {
+                System.arraycopy(srcId, 0, args, 2, sizeSrc);
+                System.arraycopy(srcVal, 0, args, 2 + sizeSrc, sizeSrc);
+            }
+            if (sizeTar > 0) {
+                System.arraycopy(tarId, 0, args, 2 + (sizeSrc << 1), sizeTar);
+                System.arraycopy(tarVal, 0, args, 2 + (sizeSrc << 1) + sizeTar, sizeTar);
+            }
+
+            expandTask(task, data, srcE, src.storeKey, srcI, interval, count, args);
+        } else {
+            if (sizeSrc == 0 || srcI == 0) srcId = srcVal = Constants.EMPTY_ARY_INT;
+            else if (sizeSrc != srcId.length) {
+                srcId = Arrays.copyOfRange(srcId, 0, sizeSrc);
+                srcVal = Arrays.copyOfRange(srcVal, 0, sizeSrc);
+            }
+
+            if (sizeTar == 0) tarId = tarVal = Constants.EMPTY_ARY_INT;
+            else if (sizeTar != tarId.length) {
+                tarId = Arrays.copyOfRange(tarId, 0, sizeTar);
+                tarVal = Arrays.copyOfRange(tarVal, 0, sizeTar);
+            }
+
+            int bid = nextId();
+            int ebid = tar.assignBuffId(bid);
+
+            task = new HandledResourceBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data,
+                    interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
+
+            addBuff0(bid, task);
+        }
+    }
+
+    void addBuffAttribute(int srcI, int tarI, BuffData data, T srcE, T tarE, int duration, int[] srcId, int[] srcVal, int[] tarId, int[] tarVal) {
+        if (duration == 0 || tarI == 0) return;
+        boolean selfMod = srcI == tarI;
+        int sizeSrc = checkIdAndVal(srcId, srcVal, false);
+        int sizeTar = selfMod ? 0 : checkIdAndVal(tarId, tarVal, false);
+
+        if ((sizeSrc ^ sizeTar) == 0) return;
+
+        StatusEntity src = entityManager.getEntity0(srcI);
+        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
 
         if (duration < 0 || duration >= maximumTickLimit) duration = -1;
-        if (duration > 0 && src.id > 0) src.buffRefCount++;
+        else if (srcI > 0 && !selfMod) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
@@ -151,38 +158,63 @@ class BuffManager<T> {
         int interval = duration < 0 ? Integer.MAX_VALUE : duration;
 
         if (task != null) {
-            int sA = srcId == null || src.id == 0 ? 0 : srcId.length;
-            int sB = tarId == null ? 0 : tarId.length;
+            int[] args = new int[sizeSrc + sizeTar + 2];
+            args[0] = sizeSrc;
+            args[1] = sizeTar;
 
-            int[] args = new int[sA + sB + 2];
-
-            args[0] = sA;
-            args[1] = sB;
-            if (sA > 0) {
-                System.arraycopy(srcId, 0, args, 2, sA);
-                System.arraycopy(srcVal, 0, args, 2 + sA, sA);
+            if (sizeSrc > 0) {
+                System.arraycopy(srcId, 0, args, 2, sizeSrc);
+                System.arraycopy(srcVal, 0, args, 2 + sizeSrc, sizeSrc);
             }
-            if (sB > 0) {
-                System.arraycopy(tarId, 0, args, 2 + (sA << 1), sB);
-                System.arraycopy(tarVal, 0, args, 2 + (sA << 1) + sB, sB);
+            if (sizeTar > 0) {
+                System.arraycopy(tarId, 0, args, 2 + (sizeSrc << 1), sizeTar);
+                System.arraycopy(tarVal, 0, args, 2 + (sizeSrc << 1) + sizeTar, sizeTar);
             }
 
-            expandTask(task, data, srcE, src.storeKey, src.id, interval, count, args);
+            expandTask(task, data, srcE, src.storeKey, srcI, interval, count, args);
         } else {
+
+            if (sizeSrc == 0 || srcI == 0) srcId = srcVal = Constants.EMPTY_ARY_INT;
+            else if (sizeSrc != srcId.length) {
+                srcId = Arrays.copyOfRange(srcId, 0, sizeSrc);
+                srcVal = Arrays.copyOfRange(srcVal, 0, sizeSrc);
+            }
+
+            if (sizeTar == 0) tarId = tarVal = Constants.EMPTY_ARY_INT;
+            else if (sizeTar != tarId.length) {
+                tarId = Arrays.copyOfRange(tarId, 0, sizeTar);
+                tarVal = Arrays.copyOfRange(tarVal, 0, sizeTar);
+            }
+
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
 
-            if (src.id == 0 && srcId.length != 0) {
-                srcId = Constants.EMPTY_ARY_INT;
-                srcVal = Constants.EMPTY_ARY_INT;
-            }
-
-            task = new AttributeBuff(tar.id, ebid, src.id, tar.storeKey, src.storeKey, data,
-                    interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
+            task = new AttributeBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data, interval, count, tarE, srcE,
+                    tarId, tarVal, srcId, srcVal);
 
             addBuff0(bid, task);
         }
+    }
 
+    private int checkIdAndVal(int[] idAry, int[] valAry, boolean resource) {
+        if (idAry == null || valAry == null || idAry.length != valAry.length) return 0;
+
+        int i = 0, j = 0;
+        for (; i < idAry.length; ++i) {
+            int id = idAry[i], val = valAry[i];
+            if (!(resource ? entityManager.isResourceId(id) : entityManager.isAttributeId(id)) || val == 0) {
+                for (; j < idAry.length; ++j) {
+                    id = idAry[i];
+                    val = valAry[i];
+                    if ((resource ? entityManager.isResourceId(id) : entityManager.isAttributeId(id)) && val != 0) break;
+                }
+                if (j < idAry.length) {
+                    idAry[i] = id;
+                    valAry[i] = val;
+                } else break;
+            }
+        }
+        return i;
     }
 
     @SuppressWarnings("unchecked")
@@ -197,16 +229,23 @@ class BuffManager<T> {
         taskManager.addTask(task);
     }
 
-    void removeBuff(StatusEntity se, BuffType type, String key, String tag, byte[] src, boolean anySource, boolean once, boolean force) {
-        for (int count = 0; count < se.buffs.length ; ++count) {
-            int id = se.buffs[count];
-            BuffTask bt = getBuff(id, se.id, count);
+    void removeBuff(int srcI, int tarI, BuffData data, boolean once) {
+        if (data == null) return;
+        StatusEntity src = entityManager.getEntity(srcI);
+        StatusEntity tar = entityManager.getEntity(tarI);
+
+        if (tar == null) return;
+
+        int[] buffs = tar.buffs;
+        for (int count = 0; count < buffs.length; ++count) {
+            int id = buffs[count];
+            BuffTask bt = getBuff(id, tarI, count);
             if (bt != null) {
-                boolean isMatch = (type == null || bt.type == null || type == bt.type)
-                        && (key == null || key.equals(bt.key))
-                        && (tag == null || tag.equals(bt.tag))
-                        && (anySource || src == null || bt.src == null || Arrays.equals(src, bt.src))
-                        && (force || bt.canRemove);
+                boolean isMatch = (data.type == null || bt.type == null || data.type == bt.type)
+                        && (data.key == null || data.key.equals(bt.key))
+                        && (data.tag == null || data.tag.equals(bt.tag))
+                        && (data.anySrc || src == null || bt.src == null || Arrays.equals(src.storeKey, bt.src))
+                        && (data.canRemove || bt.canRemove);
                 if (isMatch) {
                     bt.cancel(true);
                     bt.onRemove();

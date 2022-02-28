@@ -289,7 +289,11 @@ class EntityManager<T> {
     }
 
     StatusEntity getEntity(int id) {
-        return id >= 0  && id < entityMap.length ? entityMap[id] : null;
+        return id >= 0 && id < entityMap.length ? entityMap[id] : null;
+    }
+
+    StatusEntity getEntity0(int id) {
+        return entityMap[id];
     }
 
     private void applyResourceStep(int index, IntQueue queue) {
@@ -430,6 +434,14 @@ class EntityManager<T> {
     byte[] getEntityKey(int index) {
         StatusEntity se = getEntity(index);
         return se == null ? null : se.storeKey;
+    }
+
+    boolean isResourceId(int id) {
+        return id >= 0 && id < resourceSize;
+    }
+
+    boolean isAttributeId(int id) {
+        return id >= resourceSize && id < attributes.length;
     }
 
     void tick() {

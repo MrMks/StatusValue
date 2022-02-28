@@ -63,68 +63,56 @@ public class HandlerList<T> {
             Iterator<ModCache<T>> iterator = queuedModification.iterator();
             while (iterator.hasNext()) {
                 ModCache<T> entry = iterator.next();
+                iterator.remove();
 
-                T src = entry.src, tar = entry.tar;
                 int srcI = entry.srcI, tarI = entry.tarI;
                 boolean selfMod = srcI == tarI;
-                ModificationTable mt = entry.mTable;
+                T src = entry.src, tar = entry.tar;
 
-                if (tarI == 0 || !entityManager.testEntity(src, srcI) || !entityManager.testEntity(tar, tarI)) {
-                    iterator.remove();
+                if (tarI == 0 || !entityManager.testEntity(src, srcI) || (!selfMod && !entityManager.testEntity(tar, tarI))) {
                     continue;
                 }
 
+                ModificationTable mt = entry.mTable;
                 for (ModificationTable.BuffCache bc : entry.mTable.buffCaches) {
-                    if (bc.reverse && srcI != 0 && srcI != tarI) {
-                        src = tar;
-                        tar = entry.src;
+                    if (bc.reverse) {
+                        if (srcI == 0) continue;
+                        if (!selfMod) {
+                            src = tar;
+                            tar = entry.src;
 
-                        srcI = tarI;
-                        tarI = entry.srcI;
+                            srcI = tarI;
+                            tarI = entry.srcI;
+                        }
                     }
+                    BuffData data = new BuffData(bc.type, bc.key, bc.tag, bc.icon, bc.canRemoveOrForce, bc.anySource);
                     if (bc.adding) {
                         // add buff
-                        assert bc.args != null && bc.idTar != null;
+                        if (bc.args == null || bc.idTar == null) continue;
                         if (bc.attributeOrOnce) {
                             // attribute buff
                             if (!selfMod) entityManager.applyAttribute(tar, tarI, bc.idTar, bc.valTar);
                             if (srcI != 0) entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
-                            buffManager.addBuff(
-                                    selfMod ? null : entityManager.getEntity(tarI),
-                                    entityManager.getEntity(srcI),
-                                    new BuffData(bc.type, bc.key, bc.tag, bc.icon, bc.canRemoveOrForce, bc.anySource),
-                                    tar, src, bc.args[0], bc.idTar, bc.valTar, bc.idSrc, bc.valSrc
-                            );
+                            buffManager.addBuffAttribute(srcI, tarI, data,
+                                    src, tar, bc.args[0], bc.idSrc, bc.valSrc, bc.idTar, bc.valTar);
                         } else {
-                            // resource buff
                             if (bc.asSource) {
-                                // as source
-                                buffManager.addBuff(
-                                        selfMod ? null : entityManager.getEntity(tarI),
-                                        entityManager.getEntity(srcI),
-                                        new BuffData(bc.type, bc.key, bc.tag, bc.icon, bc.canRemoveOrForce, bc.anySource),
-                                        tar, src, bc.args[0], bc.args[1], bc.idTar[0], bc.valTar
-                                );
+                                // modifier buff
+                                buffManager.addBuffModifier(srcI, tarI, data,
+                                        src, tar, bc.args[0], bc.args[1], bc.idTar[0], bc.valTar);
                             } else {
-                                // as handled
-                                buffManager.addBuff(
-                                        selfMod ? null : entityManager.getEntity(tarI),
-                                        entityManager.getEntity(srcI),
-                                        new BuffData(bc.type, bc.key, bc.tag, bc.icon, bc.canRemoveOrForce, bc.anySource),
-                                        tar, src, bc.args[0], bc.args[1], bc.idTar, bc.valTar, bc.idSrc, bc.valSrc
-                                );
+                                // resource buff
+                                buffManager.addBuffResource(srcI, tarI, data,
+                                        src, tar, bc.args[0], bc.args[1], bc.idSrc, bc.valSrc, bc.idTar, bc.valTar);
                             }
                         }
                     } else {
                         // remove buff
-                        buffManager.removeBuff(
-                                entityManager.getEntity(tarI),
-                                bc.type, bc.key, bc.tag, entityManager.getEntityKey(srcI), bc.anySource, bc.attributeOrOnce, bc.canRemoveOrForce);
+                        buffManager.removeBuff(srcI, tarI, data, bc.attributeOrOnce);
                     }
                 }
-                entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
+                if (!selfMod && mt.tarId != null && mt.tarVal != null) entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
                 if (srcI != 0) entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
-                iterator.remove();
             }
 
             clearQueue();

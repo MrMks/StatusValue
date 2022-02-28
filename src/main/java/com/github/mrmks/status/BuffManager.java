@@ -63,11 +63,12 @@ class BuffManager<T> {
         StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
 
         if (count < 0 || count > maximumTickLimit || count + interval * interval >= maximumTickLimit) count = -1;
-        else if (srcI > 0 && !selfMod) src.buffRefCount++;
+        else if (srcI > 0) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
 
         if (task != null) {
+            if (count > 0) tar.buffRefCount++;
             int l = val == null ? 0 : val.length;
             int[] args = new int[2 + l];
             args[0] = id;
@@ -97,10 +98,11 @@ class BuffManager<T> {
         StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
 
         if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit) count = -1;
-        else if (srcI > 0 && !selfMod) src.buffRefCount++;
+        else if (srcI > 0) src.buffRefCount++;
 
         BuffTask task = matchBuff(tar, data, src.storeKey);
         if (task != null) {
+            if (count > 0) tar.buffRefCount++;
             int[] args = new int[sizeSrc + sizeTar + 2];
             args[0] = sizeSrc;
             args[1] = sizeTar;
@@ -158,6 +160,7 @@ class BuffManager<T> {
         int interval = duration < 0 ? Integer.MAX_VALUE : duration;
 
         if (task != null) {
+            if(count > 0) tar.buffRefCount++;
             int[] args = new int[sizeSrc + sizeTar + 2];
             args[0] = sizeSrc;
             args[1] = sizeTar;
@@ -351,7 +354,10 @@ class BuffManager<T> {
 
         @Override
         final void onRemove() {
-            if (logicCount >= 0) entityManager.reduceEntityRef(eidSrc);
+            if (logicCount >= 0) {
+                entityManager.reduceEntityRef(eidSrc);
+                entityManager.reduceEntityRef(eidTar);
+            }
             entityManager.getEntity(eidTar).freeBuffId(ebidTar);
             guiCallback.removeBuff(tar, key, src, anySource);
             onRemoveLogic();

@@ -86,7 +86,7 @@ public class CommonUtils {
         int left = 0, right = ary.length - 1;
 
         while (left <= right) {
-            int mid = (right - left) >>> 1;
+            int mid = (right + left) >>> 1;
             U midVal = toKey.apply(ary[mid]);
             int cmpR = cmp.compare(key, midVal);
             if (cmpR < 0) {

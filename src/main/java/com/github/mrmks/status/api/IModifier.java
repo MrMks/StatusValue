@@ -40,7 +40,10 @@ public interface IModifier {
      * You can also return false if your updater can't update to this version from previous stored version.
      */
 
-    Updater storeUpdater();
+    default Updater storeUpdater() {
+        return null;
+    }
+
     interface Updater {
         boolean accept(int perv, int now, int[] data, int[] worker);
     }

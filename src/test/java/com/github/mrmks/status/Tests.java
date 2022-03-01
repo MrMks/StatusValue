@@ -16,14 +16,14 @@ import java.util.List;
 import java.util.OptionalInt;
 
 public class Tests {
-    private class PlayerEntity {
+    private static class PlayerEntity {
         int health = 20;
         int id = 0;
         int attack = 0;
         int defence = 0;
     }
 
-    private class HealthResource implements IResource<PlayerEntity> {
+    private static class HealthResource implements IResource<PlayerEntity> {
 
         @Override
         public void update(PlayerEntity entity, int prev, int now) {
@@ -81,7 +81,7 @@ public class Tests {
         }
     }
 
-    private class AttackAttribute implements IAttribute<PlayerEntity> {
+    private static class AttackAttribute implements IAttribute<PlayerEntity> {
 
         @Override
         public String getName() {
@@ -94,7 +94,7 @@ public class Tests {
         }
     }
 
-    private class DefenceAttribute implements IAttribute<PlayerEntity> {
+    private static class DefenceAttribute implements IAttribute<PlayerEntity> {
 
         @Override
         public String getName() {
@@ -107,7 +107,7 @@ public class Tests {
         }
     }
 
-    private class TestAttributeProvider implements IAttributeProvider<PlayerEntity> {
+    private static class TestAttributeProvider implements IAttributeProvider<PlayerEntity> {
 
         @Override
         public String getName() {
@@ -131,7 +131,7 @@ public class Tests {
         }
     }
 
-    private class AttackModifier implements IModifier {
+    private static class AttackModifier implements IModifier {
 
         @Override
         public String getName() {
@@ -151,13 +151,49 @@ public class Tests {
         public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
             mt.modifyTar(ids[0], Math.min(mt.getTar(ids[2]) - mt.getSrc(ids[1]),0));
         }
+    }
+
+    private static class HealModifier implements IModifier {
 
         @Override
-        public Updater storeUpdater() {
-            return null;
+        public String getName() {
+            return "heal";
+        }
+
+        @Override
+        public SimpleDependency[] getDependencies() {
+            return new SimpleDependency[]{
+                    SimpleDependency.newRequired("test:health"),
+            };
+        }
+
+        @Override
+        public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+            mt.buffResource("heal", "", "", BuffType.POSITIVE, new int[]{ids[0]}, new int[]{1}, null, null, 0, 5, true, true, false);
         }
     }
-    private class TestExtension implements IExtension<PlayerEntity> {
+
+    private static class WeakenModifier implements IModifier {
+
+        @Override
+        public String getName() {
+            return "weaken";
+        }
+
+        @Override
+        public SimpleDependency[] getDependencies() {
+            return new SimpleDependency[] {
+                    SimpleDependency.newRequired("test:attack")
+            };
+        }
+
+        @Override
+        public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+            mt.buffAttribute("weaken", "", "", BuffType.NEGATIVE, new int[]{ids[0]}, new int[]{-2}, null, null, 2, true, true, false);
+        }
+    }
+
+    private static class TestExtension implements IExtension<PlayerEntity> {
 
 
         @Override
@@ -176,11 +212,11 @@ public class Tests {
 
         @Override
         public List<IModifier> getModifiers() {
-            return Collections.singletonList(new AttackModifier());
+            return Arrays.asList(new AttackModifier(), new HealModifier(), new WeakenModifier());
         }
     }
 
-    private class EntityConvert implements IEntityConvert<PlayerEntity> {
+    private static class EntityConvert implements IEntityConvert<PlayerEntity> {
 
         IntMap<PlayerEntity> map = new IntMap<>();
 
@@ -200,7 +236,7 @@ public class Tests {
         }
     }
 
-    private class DataAccessor implements IDataAccessor {
+    private static class DataAccessor implements IDataAccessor {
 
         @Override
         public void connect() throws IOException {
@@ -292,11 +328,24 @@ public class Tests {
         statusMain.createEntity(enemy, false);
 
         short mid = statusMain.queryModifierId("test:attack");
+        short h_mid = statusMain.queryModifierId("test:heal");
         if (mid >= 0) {
             statusMain.startTransaction(enemy, self).modify(mid, null);
         }
         Assertions.assertEquals(0, self.health);
         for (int i = 0; i < 50; i++) statusMain.tick();
         Assertions.assertEquals(0, self.health);
+
+        statusMain.startTransaction(self).modify(h_mid, null);
+        for (int i = 0; i < 10; i++) statusMain.tick();
+        Assertions.assertEquals(10, self.health);
+
+        for (int i = 0; i < 20; i++) statusMain.tick();
+        Assertions.assertEquals(20, self.health);
+
+        short w_mid = statusMain.queryModifierId("test:weaken");
+        statusMain.startTransaction(enemy).modify(w_mid, null);
+        statusMain.startTransaction(enemy, self).modify(mid, null);
+        Assertions.assertEquals(1, self.health);
     }
 }

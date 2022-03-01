@@ -102,7 +102,7 @@ class ModificationTable implements ModificationCache {
     }
 
     @Override
-    public void buffResource(String key, String tag, String icon, BuffType type, int id, int[] val, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
+    public void buffModifier(String key, String tag, String icon, BuffType type, int id, int[] val, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
         if (srcSystem && reverse) return;
         reverse = !selfModify && reverse;
         buffCaches.add(new BuffCache(key, tag, icon, type, new int[]{id}, val, null, null, interval, count, anySource, canRemove, false, reverse));

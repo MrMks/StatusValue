@@ -222,7 +222,10 @@ class BuffManager<T> {
 
     @SuppressWarnings("unchecked")
     private void addBuff0(int bid, BuffTask task) {
-        if (buffAry == null) buffAry = new BuffManager.BuffTask[1][];
+        if (buffAry == null) {
+            buffAry = new BuffManager.BuffTask[1][];
+            buffAry[0] = new BuffManager.BuffTask[1 << cap];
+        }
         int i = bid >>> cap, j = bid & (1 << cap) - 1;
         if (i == buffAry.length) {
             buffAry = Arrays.copyOf(buffAry, i << 1);
@@ -345,7 +348,8 @@ class BuffManager<T> {
             }
             if (guiRemaining < 0) {
                 guiRemaining = GUI_UPDATE_INTERVAL;
-                guiCallback.updateBuff(tar, key, src, anySource, icon, logicInterval * (logicCount - 1) + logicRemaining);
+                if (guiCallback != null)
+                    guiCallback.updateBuff(tar, key, src, anySource, icon, logicInterval * (logicCount - 1) + logicRemaining);
             }
             return Math.min(guiRemaining, logicRemaining);
         }
@@ -359,7 +363,7 @@ class BuffManager<T> {
                 entityManager.reduceEntityRef(eidTar);
             }
             entityManager.getEntity(eidTar).freeBuffId(ebidTar);
-            guiCallback.removeBuff(tar, key, src, anySource);
+            if (guiCallback != null) guiCallback.removeBuff(tar, key, src, anySource);
             onRemoveLogic();
         }
 

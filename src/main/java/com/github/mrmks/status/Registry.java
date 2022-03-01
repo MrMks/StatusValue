@@ -458,7 +458,7 @@ public class Registry {
 
     private static class IndexedAttribute<T> extends WrappedAttribute<T> implements IndexedEntry {
 
-        private short index = -1, dataIndex = -1;
+        private short index = -1;
 
         public IndexedAttribute(IAttribute<T> attr, String name, byte flag) {
             super(attr, name, flag);

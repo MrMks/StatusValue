@@ -74,6 +74,7 @@ public class HandlerList<T> {
                 }
 
                 ModificationTable mt = entry.mTable;
+                sessionControl.applyBuff();
                 for (ModificationTable.BuffCache bc : entry.mTable.buffCaches) {
                     if (bc.reverse) {
                         if (srcI == 0) continue;
@@ -91,8 +92,10 @@ public class HandlerList<T> {
                         if (bc.args == null || bc.idTar == null) continue;
                         if (bc.attributeOrOnce) {
                             // attribute buff
+                            sessionControl.applyAttribute();
                             if (!selfMod) entityManager.applyAttribute(tar, tarI, bc.idTar, bc.valTar);
                             if (srcI != 0) entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
+                            sessionControl.applyBuff();
                             buffManager.addBuffAttribute(srcI, tarI, data,
                                     src, tar, bc.args[0], bc.idSrc, bc.valSrc, bc.idTar, bc.valTar);
                         } else {
@@ -111,6 +114,7 @@ public class HandlerList<T> {
                         buffManager.removeBuff(srcI, tarI, data, bc.attributeOrOnce);
                     }
                 }
+                sessionControl.applyAttribute();
                 if (!selfMod && mt.tarId != null && mt.tarVal != null) entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
                 if (srcI != 0) entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
             }
@@ -215,6 +219,7 @@ public class HandlerList<T> {
         wm.handle(mVal, mTable, sessionId, entityManager.getModifierStore(srcI, wm.dataIndex), srcI == tarI ? Constants.EMPTY_ARY_INT : entityManager.getModifierStore(tarI, wm.dataIndex));
         mTable.trimToSize();
         queuedModification.add(new ModCache<>(src, tar, srcI, tarI, mTable));
+        sessionControl.finishEventCall();
     }
 
     private class EventImpl implements ModificationEvent {

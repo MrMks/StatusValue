@@ -145,7 +145,6 @@ class EntityManager<T> {
             }
             entityMap[index] = se;
         }
-
     }
 
     private void resumeEntity(T entity, StatusEntity se) {
@@ -375,6 +374,32 @@ class EntityManager<T> {
                 if (directUpdate) attributes[_r_id].update(entity, _r_prev, _r_val);
             }
             if (directUpdate) attributes[_id].update(entity, _prev, _val);
+        }
+    }
+
+    int checkIdAndVal(int[] id, int[] val, boolean attr) {
+        if (id == null || val == null || id.length != val.length) return 0;
+        else {
+            int _id, _val, j = id.length;
+            boolean f;
+            for (int i = 0; i < j; i++) {
+                _id = id[i]; _val = val[i];
+                if (_val == 0 || _id < 0 || _id >= attributes.length || attr == _id < resourceSize) {
+                    f = true;
+                    while (j > i + 1) {
+                        --j;
+                        _id = id[j]; _val = val[j];
+                        if (_val != 0 && _id >= 0 && _id < attributes.length && attr == _id >= resourceSize) {
+                            id[i] = _id;
+                            val[i] = _val;
+                            f = false;
+                            break;
+                        }
+                    }
+                    if (f) return i;
+                }
+            }
+            return j;
         }
     }
 

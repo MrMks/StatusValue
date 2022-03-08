@@ -1,7 +1,7 @@
 package com.github.mrmks.status;
 
-import com.github.mrmks.status.api.ModificationCache;
 import com.github.mrmks.status.api.BuffType;
+import com.github.mrmks.status.api.ModificationCache;
 import com.github.mrmks.utils.IntArray;
 
 import java.util.LinkedList;
@@ -23,15 +23,16 @@ class ModificationTable implements ModificationCache {
     private final boolean selfModify;
 
     ModificationTable(StatusTable.Readonly src, StatusTable.Readonly tar, int size, boolean srcSystem, boolean selfModify) {
-        this.src = src;
         this.tar = tar;
-        this.srcId = new IntArray(8);
-        this.srcVal = new IntArray(8);
+        this.tarId = new IntArray(8);
+        this.tarVal = new IntArray(8);
         if (selfModify) {
-            this.tarId = this.tarVal = null;
+            this.src = null;
+            this.srcId = this.srcVal = null;
         } else {
-            this.tarId = new IntArray(8);
-            this.tarVal = new IntArray(8);
+            this.src = src;
+            this.srcId = new IntArray(8);
+            this.srcVal = new IntArray(8);
         }
         this.size = size;
         this.buffCaches = new LinkedList<>();
@@ -51,7 +52,7 @@ class ModificationTable implements ModificationCache {
 
     @Override
     public int getSrc(int id) {
-        return src == null ? 0 : src.get(id);
+        return selfModify ? getTar(id) : src == null ? 0 : src.get(id);
     }
 
     @Override
@@ -61,18 +62,23 @@ class ModificationTable implements ModificationCache {
 
     @Override
     public void modifySrc(int id, int val) {
-        if (srcSystem) return;
-        int i = modify(id, val, srcLa, srcLai, srcLe, srcId, srcVal);
-        if (i >= 0) {
-            srcLa = id;
-            srcLai = i;
-            srcLe += srcLe == i ? 1 : 0;
+        if (!srcSystem) {
+            if (selfModify) {
+                modifyTar(id, val);
+            }
+            else {
+                int i = modify(id, val, srcLa, srcLai, srcLe, srcId, srcVal);
+                if (i >= 0) {
+                    srcLa = id;
+                    srcLai = i;
+                    srcLe += srcLe == i ? 1 : 0;
+                }
+            }
         }
     }
 
     @Override
     public void modifyTar(int id, int val) {
-        if (selfModify) return;
         int i = modify(id, val, tarLa, tarLai, tarLe, tarId, tarVal);
         if (i >= 0) {
             tarLa = id;
@@ -83,41 +89,38 @@ class ModificationTable implements ModificationCache {
 
     @Override
     public void buffAttribute(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int duration, boolean anySource, boolean canRemove, boolean reverse) {
-        if (srcSystem) {
-            if (reverse) return;
-            idSrc = valSrc = Constants.EMPTY_ARY_INT;
-        }
-        reverse = !selfModify && reverse;
+        if (srcSystem && reverse) return;
+        else if (selfModify) reverse = false;
+
         buffCaches.add(new BuffCache(key, tag, icon, type, idTar, valTar, idSrc, valSrc, duration, anySource, canRemove, reverse));
     }
 
     @Override
     public void buffResource(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
-        if (srcSystem) {
-            if (reverse) return;
-            idSrc = valSrc = Constants.EMPTY_ARY_INT;
-        }
-        reverse = !selfModify && reverse;
+        if (srcSystem && reverse) return;
+        else if (selfModify) reverse = false;
+
         buffCaches.add(new BuffCache(key, tag, icon, type, idTar, valTar, idSrc, valSrc, interval, count, anySource, canRemove, false, reverse));
     }
 
     @Override
     public void buffModifier(String key, String tag, String icon, BuffType type, int id, int[] val, int interval, int count, boolean anySource, boolean canRemove, boolean reverse) {
         if (srcSystem && reverse) return;
-        reverse = !selfModify && reverse;
+        else if (selfModify) reverse = false;
+
         buffCaches.add(new BuffCache(key, tag, icon, type, new int[]{id}, val, null, null, interval, count, anySource, canRemove, false, reverse));
     }
 
     @Override
     public void removeBuffSrc(BuffType type, String key, String tag, boolean anySource, boolean once, boolean force) {
-        if (srcSystem) return;
-        buffCaches.add(new BuffCache(type, key, tag, anySource, once, force, true));
+        if (!srcSystem) {
+            buffCaches.add(new BuffCache(type, key, tag, anySource, once, force, !selfModify));
+        }
     }
 
     @Override
     public void removeBuffTar(BuffType type, String key, String tag, boolean anySource, boolean once, boolean force) {
-        if (selfModify) return;
-        buffCaches.add(new BuffCache(type, key, tag, anySource, once, force, false));
+        buffCaches.add(new BuffCache(type, key, tag, anySource, once, force, selfModify));
     }
 
     private int modify(int id, int val, int la, int lai, int le, IntArray ids, IntArray vs) {
@@ -140,12 +143,12 @@ class ModificationTable implements ModificationCache {
     }
 
     void trimToSize() {
-        srcId.resize(srcLe);
-        srcVal.resize(srcLe);
-        if (tarId != null && tarVal != null) {
-            tarId.resize(tarLe);
-            tarVal.resize(tarLe);
+        if (srcId != null && srcVal != null) {
+            srcId.resize(srcLe);
+            srcVal.resize(srcLe);
         }
+        tarId.resize(tarLe);
+        tarVal.resize(tarLe);
     }
 
     static class BuffCache {

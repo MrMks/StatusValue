@@ -400,8 +400,8 @@ public class Registry {
         }
 
         TaskManager tm = new TaskManager();
-        BuffManager<T> bm = new BuffManager<>(tm, guiCallback, configMap);
         StateControl stateControl = new StateControl();
+        BuffManager<T> bm = new BuffManager<>(tm, guiCallback, configMap, stateControl);
         EntityManager<T> em = new EntityManager<>(tm, iec, ida, logger, stateControl, attributeAry, resourceSize, intervals, intervalIds, baseValues, autoStepZero, attributeProviderAry);
         HandlerList<T> hl = new HandlerList<>(stateControl, em, bm, handlerAry, modifierAry, wrappedHandlerMap, paramMap, resourceSize);
         bm.setup(em, hl);

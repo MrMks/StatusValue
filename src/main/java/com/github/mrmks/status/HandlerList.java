@@ -58,6 +58,75 @@ public class HandlerList<T> {
         if (sessionControl.beginSession()) clearQueue();
     }
 
+    /**
+     * For system to do modifications on entity
+     */
+    Transaction beginTransaction(T tar) {
+        if (!sessionControl.isInSession()) clearQueue();
+        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
+
+        return beginTransaction0(null, tar);
+    }
+
+    Transaction beginTransaction(T src, T tar) {
+        if (!sessionControl.isInSession()) clearQueue();
+        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
+
+        return beginTransaction0(src, tar);
+    }
+
+    @Deprecated
+    Transaction beginTransaction(int src, int tar, T srcE, T tarE) {
+        if (!sessionControl.isInSession()) clearQueue();
+        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
+
+        TransactionImpl trImpl = new TransactionImpl(src, tar, srcE, tarE, sessionId);
+        queuedTransactions.add(trImpl);
+        return trImpl;
+    }
+
+    private Transaction beginTransaction0(T src, T tar) {
+        int srcI, tarI;
+        if (src == null) {
+            srcI = 0;
+            if (tar == null) throw new IllegalArgumentException("Both entity instance are null");
+            else {
+                tarI = entityManager.findEntityIndex(tar);
+                if (tarI <= 0) throw new IllegalArgumentException("Unregistered transaction target entity instance");
+            }
+        } else {
+            srcI = entityManager.findEntityIndex(src);
+            if (srcI <= 0) throw new IllegalArgumentException("Unregistered transaction source entity instance.");
+            else {
+                if (tar == null || tar == src) {
+                    tarI = srcI;
+                    tar = src;
+                    src = null;
+                } else {
+                    tarI = entityManager.findEntityIndex(tar);
+                    if (tarI <= 0) throw new IllegalArgumentException("Unregistered transaction target entity instance");
+                }
+            }
+        }
+        TransactionImpl trImpl = new TransactionImpl(srcI, tarI, src, tar, sessionId);
+        queuedTransactions.add(trImpl);
+        return trImpl;
+    }
+
+    /*
+     * This method should only be invoked by ModificationEvent#beginTransaction, where the valid check has been performed
+     * Means this method will not perform any valid check at all;
+     */
+    private Transaction directTransaction(int src, int tar, T srcE, T tarE) {
+        TransactionImpl trImpl = new TransactionImpl(src, tar, srcE, tarE, sessionId);
+        queuedTransactions.add(trImpl);
+        return trImpl;
+    }
+
+    void finishAutoSession() {
+        if (sessionControl.canFinishAutoSession()) finishSession();
+    }
+
     void finishSession() {
         if (sessionControl.canFinishSession()) {
             Iterator<ModCache<T>> iterator = queuedModification.iterator();
@@ -67,18 +136,23 @@ public class HandlerList<T> {
 
                 int srcI = entry.srcI, tarI = entry.tarI;
                 boolean selfMod = srcI == tarI;
+
                 T src = entry.src, tar = entry.tar;
 
-                if (tarI == 0 || !entityManager.testEntity(src, srcI) || (!selfMod && !entityManager.testEntity(tar, tarI))) {
+                if (tarI == 0 || !entityManager.testEntity(tar, tarI) || (!selfMod && !entityManager.testEntity(src, srcI))) {
                     continue;
                 }
 
                 ModificationTable mt = entry.mTable;
                 sessionControl.applyBuff();
-                for (ModificationTable.BuffCache bc : entry.mTable.buffCaches) {
+                Iterator<ModificationTable.BuffCache> itBuffs = entry.mTable.buffCaches.iterator();
+                while (itBuffs.hasNext()) {
+                    ModificationTable.BuffCache bc = itBuffs.next();
+                    itBuffs.remove();
+
                     if (bc.reverse) {
                         if (srcI == 0) continue;
-                        if (!selfMod) {
+                        else if (!selfMod) {
                             src = tar;
                             tar = entry.src;
 
@@ -86,6 +160,7 @@ public class HandlerList<T> {
                             tarI = entry.srcI;
                         }
                     }
+
                     BuffData data = new BuffData(bc.type, bc.key, bc.tag, bc.icon, bc.canRemoveOrForce, bc.anySource);
                     if (bc.adding) {
                         // add buff
@@ -93,8 +168,8 @@ public class HandlerList<T> {
                         if (bc.attributeOrOnce) {
                             // attribute buff
                             sessionControl.applyAttribute();
-                            if (!selfMod) entityManager.applyAttribute(tar, tarI, bc.idTar, bc.valTar);
-                            if (srcI != 0) entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
+                            entityManager.applyAttribute(tar, tarI, bc.idTar, bc.valTar);
+                            if (srcI != 0 && !selfMod) entityManager.applyAttribute(src, srcI, bc.idSrc, bc.valSrc);
                             sessionControl.applyBuff();
                             buffManager.addBuffAttribute(srcI, tarI, data,
                                     src, tar, bc.args[0], bc.idSrc, bc.valSrc, bc.idTar, bc.valTar);
@@ -115,55 +190,15 @@ public class HandlerList<T> {
                     }
                 }
                 sessionControl.applyAttribute();
-                if (!selfMod && mt.tarId != null && mt.tarVal != null) entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
-                if (srcI != 0) entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
+                entityManager.applyResource(tar, tarI, mt.tarId.toArray(), mt.tarVal.toArray());
+                if (srcI != 0 && !selfMod && mt.srcId != null && mt.srcVal != null)
+                    entityManager.applyResource(src, srcI, mt.srcId.toArray(), mt.srcVal.toArray());
             }
 
             clearQueue();
             sessionId ++;
             sessionControl.finishSession();
         }
-    }
-
-    void finishAutoSession() {
-        if (sessionControl.canFinishAutoSession()) finishSession();
-    }
-
-    Transaction beginTransaction(T src, T tar) {
-        if (!sessionControl.isInSession()) clearQueue();
-        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
-
-        int srcI = entityManager.findEntityIndex(src);
-        int tarI = tar == src ? srcI : entityManager.findEntityIndex(tar);
-        if ((srcI | tarI) < 0) throw new IllegalArgumentException("Both the entity should be non-null and be registered before you use them.");
-
-        TransactionImpl trImpl = new TransactionImpl(srcI, tarI, src, tar, sessionId);
-        queuedTransactions.add(trImpl);
-        return trImpl;
-    }
-
-    /**
-     * For system to do modifications on entity
-     */
-    Transaction beginTransaction(T tar) {
-        if (!sessionControl.isInSession()) clearQueue();
-        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
-
-        int tarI = entityManager.findEntityIndex(tar);
-        if (tarI < 0) throw new IllegalArgumentException();
-
-        TransactionImpl trImpl = new TransactionImpl(0, tarI, null, tar, sessionId);
-        queuedTransactions.add(trImpl);
-        return trImpl;
-    }
-
-    Transaction beginTransaction(int src, int tar, T srcE, T tarE) {
-        if (!sessionControl.isInSession()) clearQueue();
-        if (!sessionControl.beginAutoSession()) throw new IllegalStateException();
-
-        TransactionImpl trImpl = new TransactionImpl(src, tar, srcE, tarE, sessionId);
-        queuedTransactions.add(trImpl);
-        return trImpl;
     }
 
     void tick() {
@@ -222,87 +257,6 @@ public class HandlerList<T> {
         sessionControl.finishEventCall();
     }
 
-    private class EventImpl implements ModificationEvent {
-        private final T srcRf, tarRf;
-        private final int srcI, tarI;
-        private final StatusTable.Readonly src, tar;
-        private final int[] init, initRead, values, cache;
-        private boolean cancel = false;
-
-        EventImpl(int srcI, int tarI, T srcRf, T tarRf, StatusTable.Readonly _src, StatusTable.Readonly _tar, int[] _value) {
-            this.srcI = srcI;
-            this.tarI = tarI;
-            this.init = _value;
-            this.initRead = new int[init.length];
-            this.srcRf = srcRf;
-            this.tarRf = tarRf;
-            this.values = Arrays.copyOf(_value, _value.length);
-            this.cache = new int[_value.length];
-            this.src = _src;
-            this.tar = _tar;
-        }
-
-        @Override
-        public boolean isSrcSystem() {
-            return srcI == 0;
-        }
-
-        @Override
-        public boolean isSelfModify() {
-            return srcI == tarI;
-        }
-
-        @Override
-        public int[] value() {
-            System.arraycopy(values, 0, cache, 0, values.length);
-            return cache;
-        }
-
-        @Override
-        public int[] initValue() {
-            System.arraycopy(init, 0, initRead, 0, init.length);
-            return initRead;
-        }
-
-        @Override
-        public int getSrc(int id) {
-            return getVal(id, src);
-        }
-
-        @Override
-        public int getTar(int id) {
-            return getVal(id, srcI == tarI ? src : tar);
-        }
-
-        private int getVal(int id, StatusTable.Readonly readonly) {
-            if (id < 0 || id >= Short.MAX_VALUE) return 0;
-            return readonly.get(id);
-        }
-
-        @Override
-        public void modify(int id, int dis) {
-            if (id >= 0 && id < init.length) {
-                values[id] += dis;
-            }
-        }
-
-        @Override
-        public Transaction beginTransaction(boolean reserve) {
-            return reserve && srcI != 0 && srcI != tarI ? HandlerList.this.beginTransaction(tarI, srcI, tarRf, srcRf) : HandlerList.this.beginTransaction(srcI, tarI, srcRf, tarRf);
-        }
-
-        @Override
-        public void setCanceled(boolean canceled) {
-            this.cancel = canceled;
-        }
-
-        @Override
-        public boolean isCanceled() {
-            return cancel;
-        }
-
-    }
-
     private class TransactionImpl implements Transaction {
 
         private T srcE, tarE;
@@ -320,14 +274,14 @@ public class HandlerList<T> {
             this.srcI = srcI;
             this.tarI = tarI;
             this.selfModify = srcI == tarI;
-            this.srcE = src;
-            this.srcR = entityManager.createReadonly(srcI);
+            this.tarE = tar;
+            this.tarR = entityManager.createReadonly(tarI);
             if (selfModify) {
-                this.tarE = null;
-                this.tarR = null;
+                this.srcE = null;
+                this.srcR = null;
             } else {
-                this.tarE = tar;
-                this.tarR = entityManager.createReadonly(tarI);
+                this.srcE = src;
+                this.srcR = entityManager.createReadonly(srcI);
             }
             this.sessionCreate = sessionCreate;
         }
@@ -338,13 +292,13 @@ public class HandlerList<T> {
 
         @Override
         public Transaction modifySrc(int... args) {
-            modify(srcR, args);
+            modify(selfModify ? tarR : srcR, args);
             return this;
         }
 
         @Override
         public Transaction modifyTar(int... args) {
-            modify(selfModify ? srcR : tarR, args);
+            modify(tarR, args);
             return this;
         }
 
@@ -358,13 +312,13 @@ public class HandlerList<T> {
 
         @Override
         public Transaction setSrc(int... args) {
-            set(srcR, args);
+            set(selfModify ? tarR : srcR, args);
             return this;
         }
 
         @Override
         public Transaction setTar(int... args) {
-            set(selfModify ? srcR : tarR, args);
+            set(tarR, args);
             return this;
         }
 
@@ -378,13 +332,13 @@ public class HandlerList<T> {
 
         @Override
         public Transaction setSrc(int tarId, ToIntFunction<int[]> func, int... srcIds) {
-            setFunc(func, srcR, tarId, srcIds);
+            setFunc(func, selfModify ? tarR : srcR, tarId, srcIds);
             return this;
         }
 
         @Override
         public Transaction setTar(int tarId, ToIntFunction<int[]> func, int... srcIds) {
-            setFunc(func, selfModify ? srcR : tarR, tarId, srcIds);
+            setFunc(func, tarR, tarId, srcIds);
             return this;
         }
 
@@ -402,9 +356,7 @@ public class HandlerList<T> {
             if (paramMap == null) paramMap = new IntMap<>();
             int size = id >= 0 && id < paramSizeMap.length ? paramSizeMap[id] : 0;
             if (size > 0) {
-                if (args.length > size) {
-                    args = Arrays.copyOf(args, size);
-                }
+                args = Arrays.copyOf(args, size);
                 paramMap.put(id, args);
             }
             return this;
@@ -420,6 +372,90 @@ public class HandlerList<T> {
             } else {
                 throw new IllegalArgumentException("The modifier id is not valid: ".concat(Integer.toString(id)));
             }
+        }
+    }
+
+    private class EventImpl implements ModificationEvent {
+        private final T srcRf, tarRf;
+        private final int srcI, tarI;
+        private final StatusTable.Readonly src, tar;
+        private final int[] init, initRead, values, cache;
+        private final boolean selfMod, systemMod;
+        private boolean cancel = false;
+
+        EventImpl(int srcI, int tarI, T srcRf, T tarRf, StatusTable.Readonly _src, StatusTable.Readonly _tar, int[] _value) {
+            this.srcI = srcI;
+            this.tarI = tarI;
+            this.selfMod = srcI == tarI;
+            this.systemMod = srcI == 0;
+            this.init = _value;
+            this.initRead = new int[init.length];
+            this.srcRf = srcRf;
+            this.tarRf = tarRf;
+            this.values = Arrays.copyOf(_value, _value.length);
+            this.cache = new int[_value.length];
+            this.src = _src;
+            this.tar = _tar;
+        }
+
+        @Override
+        public boolean isSrcSystem() {
+            return systemMod;
+        }
+
+        @Override
+        public boolean isSelfModify() {
+            return selfMod;
+        }
+
+        @Override
+        public int[] value() {
+            System.arraycopy(values, 0, cache, 0, values.length);
+            return cache;
+        }
+
+        @Override
+        public int[] initValue() {
+            System.arraycopy(init, 0, initRead, 0, init.length);
+            return initRead;
+        }
+
+        @Override
+        public int getSrc(int id) {
+            return getVal(id, selfMod ? tar : src);
+        }
+
+        @Override
+        public int getTar(int id) {
+            return getVal(id, tar);
+        }
+
+        private int getVal(int id, StatusTable.Readonly readonly) {
+            if (id < 0 || id >= Short.MAX_VALUE) return 0;
+            return readonly.get(id);
+        }
+
+        @Override
+        public void modify(int id, int dis) {
+            if (id >= 0 && id < init.length) {
+                values[id] += dis;
+            }
+        }
+
+        @Override
+        public Transaction beginTransaction(boolean reserve) {
+            if (reserve && srcI == 0) throw new IllegalArgumentException("You can nor begin transaction with reserve is true while the #isSrcSystem returns true");
+            return reserve && srcI != tarI ? directTransaction(tarI, srcI, tarRf, srcRf) : directTransaction(srcI, tarI, srcRf, tarRf);
+        }
+
+        @Override
+        public void setCanceled(boolean canceled) {
+            this.cancel = canceled;
+        }
+
+        @Override
+        public boolean isCanceled() {
+            return cancel;
         }
     }
 

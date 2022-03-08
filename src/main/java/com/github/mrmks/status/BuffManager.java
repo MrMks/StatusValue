@@ -30,6 +30,7 @@ class BuffManager<T> {
     private final TaskManager taskManager;
     private final IGuiCallback guiCallback;
     private final int GUI_UPDATE_INTERVAL;
+    private final StateControl sessionControl;
 
     private BuffTask[][] buffAry;
     private int size = 0;
@@ -40,11 +41,13 @@ class BuffManager<T> {
     BuffManager(
             TaskManager taskManager,
             IGuiCallback guiCallback,
-            ConfigMap configMap
+            ConfigMap configMap,
+            StateControl sessionControl
     ) {
         this.taskManager = taskManager;
         this.guiCallback = guiCallback;
         this.GUI_UPDATE_INTERVAL = configMap.getGuiInterval() * Constants.TICKS_PER_SEC;
+        this.sessionControl = sessionControl;
     }
 
     void setup(EntityManager<T> e, HandlerList<T> l) {
@@ -59,8 +62,8 @@ class BuffManager<T> {
         if (interval < 0 || count == 0 || !handlerList.isModifierValid(id)) return;
 
         boolean selfMod = srcI == tarI;
-        StatusEntity src = entityManager.getEntity0(srcI);
-        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
+        StatusEntity tar = entityManager.getEntity0(tarI);
+        StatusEntity src = selfMod ? tar : entityManager.getEntity0(srcI);
 
         if (count < 0 || count > maximumTickLimit || count + interval * interval >= maximumTickLimit) count = -1;
         else if (srcI > 0) src.buffRefCount++;
@@ -89,13 +92,13 @@ class BuffManager<T> {
     void addBuffResource(int srcI, int tarI, BuffData data, T srcE, T tarE, int interval, int count, int[] srcId, int[] srcVal, int[] tarId, int[] tarVal) {
         if (tarI == 0 || interval < 0 || count == 0 ) return;
         boolean selfMod = srcI == tarI;
-        int sizeSrc = checkIdAndVal(srcId, srcVal, true);
-        int sizeTar = selfMod ? 0 : checkIdAndVal(tarId, tarVal, true);
+        int sizeSrc = selfMod ? 0 : checkIdAndVal(srcId, srcVal, true);
+        int sizeTar = checkIdAndVal(tarId, tarVal, true);
 
         if ((sizeSrc ^ sizeTar) == 0) return;
 
-        StatusEntity src = entityManager.getEntity0(srcI);
-        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
+        StatusEntity tar = entityManager.getEntity0(tarI);
+        StatusEntity src = selfMod ? tar : entityManager.getEntity0(srcI);
 
         if (count < 0 || count >= maximumTickLimit || count + interval * count >= maximumTickLimit) count = -1;
         else if (srcI > 0) src.buffRefCount++;
@@ -143,13 +146,13 @@ class BuffManager<T> {
     void addBuffAttribute(int srcI, int tarI, BuffData data, T srcE, T tarE, int duration, int[] srcId, int[] srcVal, int[] tarId, int[] tarVal) {
         if (duration == 0 || tarI == 0) return;
         boolean selfMod = srcI == tarI;
-        int sizeSrc = checkIdAndVal(srcId, srcVal, false);
-        int sizeTar = selfMod ? 0 : checkIdAndVal(tarId, tarVal, false);
+        int sizeSrc = selfMod ? 0 : checkIdAndVal(srcId, srcVal, false);
+        int sizeTar = checkIdAndVal(tarId, tarVal, false);
 
         if ((sizeSrc ^ sizeTar) == 0) return;
 
-        StatusEntity src = entityManager.getEntity0(srcI);
-        StatusEntity tar = selfMod ? src : entityManager.getEntity0(tarI);
+        StatusEntity tar = entityManager.getEntity0(tarI);
+        StatusEntity src = selfMod ? tar : entityManager.getEntity0(srcI);
 
         if (duration < 0 || duration >= maximumTickLimit) duration = -1;
         else if (srcI > 0 && !selfMod) src.buffRefCount++;
@@ -467,7 +470,10 @@ class BuffManager<T> {
                 }
             }
 
-            handlerList.beginTransaction(eidSrc, eidTar, src, tar).modify(id, val);
+            boolean selfMod = eidSrc == eidTar;
+            sessionControl.beginSession();
+            handlerList.callEvent(eidSrc, eidTar, src, tar, selfMod ? null : entityManager.createReadonly(eidSrc), entityManager.createReadonly(eidTar), id, val, null);
+            sessionControl.finishSession();
         }
 
         @Override

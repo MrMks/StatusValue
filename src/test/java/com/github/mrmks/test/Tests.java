@@ -1,5 +1,7 @@
-package com.github.mrmks.status;
+package com.github.mrmks.test;
 
+import com.github.mrmks.status.ConfigMap;
+import com.github.mrmks.status.StatusService;
 import com.github.mrmks.status.adapt.IDataAccessor;
 import com.github.mrmks.status.adapt.IEntityConvert;
 import com.github.mrmks.status.adapt.IEntityDataAccessor;
@@ -169,6 +171,7 @@ public class Tests {
 
         @Override
         public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+            mt.modifyTar(ids[0], 1);
             mt.buffResource("heal", "", "", BuffType.POSITIVE, new int[]{ids[0]}, new int[]{1}, null, null, 0, 5, true, true, false);
         }
     }
@@ -315,8 +318,8 @@ public class Tests {
         configMap.setGuiInterval(1800);
         EntityConvert convert = new EntityConvert();
 
-        StatusMain<PlayerEntity> statusMain = new StatusMain<>(new DataAccessor(), convert, null, null, configMap);
-        statusMain.setup(Collections.singletonList(new TestExtension()));
+        StatusService<PlayerEntity> statusService = new StatusService<>(new DataAccessor(), convert, null, null, configMap);
+        statusService.setup(Collections.singletonList(new TestExtension()));
 
         PlayerEntity self = new PlayerEntity(), enemy = new PlayerEntity();
         enemy.id = 1;
@@ -324,28 +327,30 @@ public class Tests {
         enemy.attack = 23;
         convert.map.put(0, self);
         convert.map.put(1, enemy);
-        statusMain.createEntity(self, false);
-        statusMain.createEntity(enemy, false);
+        statusService.createEntity(self, false);
+        statusService.createEntity(enemy, false);
 
-        short mid = statusMain.queryModifierId("test:attack");
-        short h_mid = statusMain.queryModifierId("test:heal");
+        short mid = statusService.queryModifierId("test:attack");
+        short h_mid = statusService.queryModifierId("test:heal");
         if (mid >= 0) {
-            statusMain.startTransaction(enemy, self).modify(mid, null);
+            statusService.startTransaction(enemy, self).modify(mid, null);
         }
         Assertions.assertEquals(0, self.health);
-        for (int i = 0; i < 50; i++) statusMain.tick();
+        for (int i = 0; i < 50; i++) statusService.tick();
         Assertions.assertEquals(0, self.health);
 
-        statusMain.startTransaction(self).modify(h_mid, null);
-        for (int i = 0; i < 10; i++) statusMain.tick();
-        Assertions.assertEquals(10, self.health);
+        statusService.startTransaction(self, self).modify(h_mid, null);
+        for (int i = 0; i < 10; i++) statusService.tick();
+        Assertions.assertEquals(11, self.health);
 
-        for (int i = 0; i < 20; i++) statusMain.tick();
-        Assertions.assertEquals(20, self.health);
+        for (int i = 0; i < 10; i++) statusService.tick();
+        Assertions.assertEquals(16, self.health);
 
-        short w_mid = statusMain.queryModifierId("test:weaken");
-        statusMain.startTransaction(enemy).modify(w_mid, null);
-        statusMain.startTransaction(enemy, self).modify(mid, null);
+        for (int i = 0; i < 10; i++) statusService.tick();
+
+        short w_mid = statusService.queryModifierId("test:weaken");
+        statusService.startTransaction(enemy).modify(w_mid, null);
+        statusService.startTransaction(enemy, self).modify(mid, null);
         Assertions.assertEquals(1, self.health);
     }
 }

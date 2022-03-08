@@ -11,7 +11,7 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-public class StatusMain<T> {
+public class StatusService<T> {
     private final IDataAccessor dataAccessor;
     private final IEntityConvert<T> entityConvert;
     private final ILogger logger;
@@ -24,7 +24,7 @@ public class StatusMain<T> {
     private STATE state;
     private final long instanceTime;
 
-    public StatusMain(IDataAccessor ida, IEntityConvert<T> iec, IGuiCallback guiCallback, ILogger logger, ConfigMap configMap) {
+    public StatusService(IDataAccessor ida, IEntityConvert<T> iec, IGuiCallback guiCallback, ILogger logger, ConfigMap configMap) {
         state = STATE.INSTANCE;
         instanceTime = System.currentTimeMillis();
         this.dataAccessor = ida;

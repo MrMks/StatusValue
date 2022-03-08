@@ -83,7 +83,7 @@ class BuffManager<T> {
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
 
-            task = new SourceResourceBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data, interval, count, tarE, srcE, id, val == null ? Constants.EMPTY_ARY_INT : val);
+            task = new ModifierBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data, interval, count, tarE, srcE, id, val == null ? Constants.EMPTY_ARY_INT : val);
 
             addBuff0(bid, task);
         }
@@ -136,7 +136,7 @@ class BuffManager<T> {
             int bid = nextId();
             int ebid = tar.assignBuffId(bid);
 
-            task = new HandledResourceBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data,
+            task = new ResourceBuff(tarI, ebid, srcI, tar.storeKey, src.storeKey, data,
                     interval, count, tarE, srcE, srcId, tarId, srcVal, tarVal);
 
             addBuff0(bid, task);
@@ -390,14 +390,14 @@ class BuffManager<T> {
 
     }
 
-    private class HandledResourceBuff extends BuffTask {
+    private class ResourceBuff extends BuffTask {
 
         private final WeakReference<T> tarE;
         private WeakReference<T> srcE;
         private int[] srcId, tarId, srcVal, tarVal;
 
-        protected HandledResourceBuff(int eid, int ebid, int eidSrc, byte[] tar, byte[] src, BuffData data, int interval, int count,
-                                      T tarE, T srcE, int[] srcId, int[] tarId, int[] srcVal, int[] tarVal) {
+        protected ResourceBuff(int eid, int ebid, int eidSrc, byte[] tar, byte[] src, BuffData data, int interval, int count,
+                               T tarE, T srcE, int[] srcId, int[] tarId, int[] srcVal, int[] tarVal) {
             super(eid, ebid, eidSrc, tar, src, data, interval, count);
             this.tarE = new WeakReference<>(tarE);
             this.srcE = new WeakReference<>(srcE);
@@ -440,13 +440,13 @@ class BuffManager<T> {
         }
     }
 
-    private class SourceResourceBuff extends BuffTask {
+    private class ModifierBuff extends BuffTask {
         private final WeakReference<T> tar;
         private WeakReference<T> src;
         private int id;
         private int[] val;
-        protected SourceResourceBuff(int eid, int ebid, int eidSrc, byte[] tar, byte[] src, BuffData data, int interval, int count,
-                                     T tarE, T srcE, int id, int[] val) {
+        protected ModifierBuff(int eid, int ebid, int eidSrc, byte[] tar, byte[] src, BuffData data, int interval, int count,
+                               T tarE, T srcE, int id, int[] val) {
             super(eid, ebid, eidSrc, tar, src, data, interval, count);
             this.tar = new WeakReference<>(tarE);
             this.src = new WeakReference<>(srcE);

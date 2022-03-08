@@ -6,7 +6,8 @@ import com.github.mrmks.status.adapt.IDataAccessor;
 import com.github.mrmks.status.adapt.IEntityConvert;
 import com.github.mrmks.status.adapt.IEntityDataAccessor;
 import com.github.mrmks.status.api.*;
-import com.github.mrmks.status.api.SimpleDependency;
+import com.github.mrmks.status.api.simple.SimpleAttribute;
+import com.github.mrmks.status.api.simple.SimpleResource;
 import com.github.mrmks.utils.IntMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -23,90 +24,6 @@ public class Tests {
         int id = 0;
         int attack = 0;
         int defence = 0;
-    }
-
-    private static class HealthResource implements IResource<PlayerEntity> {
-
-        @Override
-        public void update(PlayerEntity entity, int prev, int now) {
-            entity.health = now;
-        }
-
-        @Override
-        public String getName() {
-            return "health";
-        }
-
-        @Override
-        public int baseValue() {
-            return 20;
-        }
-
-        @Override
-        public int baseUBound() {
-            return 20;
-        }
-
-        @Override
-        public int baseStep() {
-            return 1;
-        }
-
-        @Override
-        public int interval() {
-            return 1;
-        }
-
-        @Override
-        public void updateUBound(PlayerEntity entity, int prev, int now) {
-
-        }
-
-        @Override
-        public void updateStep(PlayerEntity entity, int prev, int now) {
-
-        }
-
-        @Override
-        public int valueVersion() {
-            return 0;
-        }
-
-        @Override
-        public Updater valueUpdater() {
-            return null;
-        }
-
-        @Override
-        public boolean canStepZero() {
-            return false;
-        }
-    }
-
-    private static class AttackAttribute implements IAttribute<PlayerEntity> {
-
-        @Override
-        public String getName() {
-            return "attack";
-        }
-
-        @Override
-        public void update(PlayerEntity entity, int prev, int changed) {
-
-        }
-    }
-
-    private static class DefenceAttribute implements IAttribute<PlayerEntity> {
-
-        @Override
-        public String getName() {
-            return "defence";
-        }
-
-        @Override
-        public void update(PlayerEntity entity, int prev, int changed) {
-
-        }
     }
 
     private static class TestAttributeProvider implements IAttributeProvider<PlayerEntity> {
@@ -206,8 +123,12 @@ public class Tests {
 
         @Override
         public List<IAttribute<PlayerEntity>> getAttributes() {
-            return Arrays.asList(new HealthResource(), new AttackAttribute(), new DefenceAttribute());
+            return Arrays.asList(
+                    new SimpleResource<>("health", 20, 20, 1, 1, false, (e, p, n) -> e.health = n),
+                    new SimpleAttribute<>("attack", (e, p, n) -> e.attack = n),
+                    new SimpleAttribute<>("defence", (e, p, n) -> e.defence = n));
         }
+
         @Override
         public List<IAttributeProvider<PlayerEntity>> getAttributeProviders() {
             return Collections.singletonList(new TestAttributeProvider());

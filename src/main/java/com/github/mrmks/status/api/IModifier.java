@@ -12,6 +12,10 @@ public interface IModifier {
      */
     SimpleDependency[] getDependencies();
 
+    default SimpleDependency[] modifierDependencies() {
+        return null;
+    }
+
     /**
      * @param ids The ids array has the same order of {@link #getDependencies()}. minus means the optional dependency doesn't exist.
      * @param v the value of the handled value. now the v is an array with size smaller than 9;

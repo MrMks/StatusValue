@@ -2,6 +2,8 @@ package com.github.mrmks.status.api;
 
 public class SimpleDependency {
 
+    public static final SimpleDependency[] EMPTY_ARRAY = new SimpleDependency[0];
+
     protected static final int REQUIRED = 0;
     protected static final int OPTIONAL = 1;
 

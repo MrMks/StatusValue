@@ -40,8 +40,14 @@ public interface IResource<T> extends IAttribute<T> {
     void updateUBound(T entity, int prev, int now);
     void updateStep(T entity, int prev, int now);
 
-    int valueVersion();
-    Updater valueUpdater();
+    default int valueVersion() {
+        return 0;
+    }
+
+    default Updater valueUpdater() {
+        return null;
+    }
+
     interface Updater {
         OptionalInt accept(int srcVer, int tarVer, int prevData);
     }

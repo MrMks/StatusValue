@@ -9,14 +9,12 @@ import com.github.mrmks.status.api.*;
 import com.github.mrmks.status.api.simple.SimpleAttribute;
 import com.github.mrmks.status.api.simple.SimpleResource;
 import com.github.mrmks.utils.IntMap;
+import com.github.mrmks.utils.StringIntMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.OptionalInt;
+import java.util.*;
 
 public class Tests {
     private static class PlayerEntity {
@@ -186,8 +184,33 @@ public class Tests {
         public IEntityDataAccessor withEntity(byte[] entityKey) {
             return new IEntityDataAccessor() {
                 @Override
+                public StringIntMap readValue() {
+                    return null;
+                }
+
+                @Override
+                public void writeValue(String[] keys, int[] vs) {
+
+                }
+
+                @Override
+                public HashMap<String, int[]> readStore() {
+                    return null;
+                }
+
+                @Override
+                public void writeStore(String[] keys, int[][] vs) {
+
+                }
+
+                @Override
                 public OptionalInt getValue(int resourceId) {
                     return OptionalInt.of(0);
+                }
+
+                @Override
+                public int[] getValue() {
+                    return new int[0];
                 }
 
                 @Override

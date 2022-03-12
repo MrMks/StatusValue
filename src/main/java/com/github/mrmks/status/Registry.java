@@ -199,6 +199,7 @@ public class Registry {
 
         // bake modifiers
         // the array is sorted by names.
+        // todo: deal with modifier dependencies for modifier buff usage
         IndexedModifier[] modifierAry = new IndexedModifier[modifierMap.size()];
         {
             short i;

@@ -15,6 +15,7 @@ public class ByteArrayToIntMap {
     public ByteArrayToIntMap(int initCapacity) {
         capacity = 16;
         initCapacity = Math.min(initCapacity, 0x40000000);
+        while (capacity < (initCapacity >>> 4)) capacity <<= 4;
         while (capacity < initCapacity) capacity <<= 1;
     }
 
@@ -48,7 +49,7 @@ public class ByteArrayToIntMap {
             linkCount ++;
             size ++;
 
-            if (size > capacity && linkCount > (capacity >> 2) && capacity < 0x40000000) {
+            if (size > capacity && linkCount > (capacity >> 2) && capacity > 0 && capacity <= 0x40000000) {
                 capacity <<= 1;
                 Entry[] tar = new Entry[capacity];
                 linkCount = transfer(data, tar, capacity);
@@ -147,7 +148,7 @@ public class ByteArrayToIntMap {
 
     private static int hash(byte[] array) {
         int h;
-        return array == null ? 0 : (h = Arrays.hashCode(array)) & (h >>> 16);
+        return array == null ? 0 : (h = Arrays.hashCode(array)) ^ (h >>> 16);
     }
 
     private static int indexOf(int h, int length) {

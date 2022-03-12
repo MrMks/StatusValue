@@ -1,10 +1,14 @@
 package com.github.mrmks.status;
 
+import com.github.mrmks.status.adapt.IEntityDataAccessor;
 import com.github.mrmks.utils.IntQueue;
 
 import java.util.Arrays;
 
 class StatusEntity {
+
+    private final Object[] lock = new Object[0];
+
     final byte[] storeKey;
     final StatusTable table;
     final int[][] data;

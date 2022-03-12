@@ -238,7 +238,7 @@ class BuffManager<T> {
         taskManager.addTask(task);
     }
 
-    void removeBuff(int srcI, int tarI, BuffData data, boolean once) {
+    void removeBuff(int tarI, int srcI, BuffData data, boolean once) {
         if (data == null) return;
         StatusEntity src = entityManager.getEntity(srcI);
         StatusEntity tar = entityManager.getEntity(tarI);

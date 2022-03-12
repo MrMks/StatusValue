@@ -43,8 +43,7 @@ public class StatusService<T> {
         } catch (IOException e) {
             dataAccessor.close();
             state = STATE.ERROR;
-            logger.severe("StatusValue run into error: can't connect to DataAccessor");
-            e.printStackTrace();
+            logger.severe("StatusValue run into error: can't connect to DataAccessor", e);
             return;
         }
         state = STATE.EXTENSION;
@@ -61,7 +60,7 @@ public class StatusService<T> {
                 bakeResult = Registry.bakeAll(list == null ? Collections.emptyList() : list, dataAccessor, entityConvert, logger, guiCallback, configMap);
             } catch (Throwable tr) {
                 state = STATE.ERROR;
-                logger.severe("StatusValue run into error: Can't setup with given extensions");
+                logger.severe("StatusValue run into error: Can't setup with given extensions", tr);
                 return;
             }
             this.handlerList = bakeResult.handlerList;
@@ -156,13 +155,19 @@ public class StatusService<T> {
     }
 
     // -------- system src ----------
-    public void removeBuff(T tar, BuffType type, String key, boolean asKey, boolean once, boolean force) {
+    public void removeBuff(T tar, BuffType type, String str, boolean asKey, boolean once, boolean force) {
         chkRunning();
+        int id = entityManager.findEntityIndex(tar);
+        if (id < 0) return;
+        buffManager.removeBuff(id, 0, new BuffData(type, asKey ? str : null, asKey ? null : str, null, force, true), once);
     }
 
     // -------- other src ----------
     public void removeBuff(T tar, T src, BuffType type, String key, String tag, boolean anySource, boolean once, boolean force) {
         chkRunning();
+        int eidSrc = entityManager.findEntityIndex(src), eidTar = entityManager.findEntityIndex(tar);
+        if (eidTar < 0 || (eidSrc < 0 && !anySource)) return;
+        buffManager.removeBuff(eidTar, eidSrc, new BuffData(type, key, tag, null, force, anySource), once);
     }
 
     public void stop() {
@@ -170,6 +175,11 @@ public class StatusService<T> {
             state = STATE.STOPPING;
             taskManager.stopAll();
             entityManager.stopAll();
+            try {
+                dataAccessor.flushAll();
+            } catch (IOException e) {
+                logger.severe("Error while flushing data accessor", e);
+            }
             state = STATE.STOPPED;
         }
     }

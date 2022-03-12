@@ -12,6 +12,8 @@ import com.github.mrmks.utils.IntQueue;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * The T is the entity instance of your game, but we don't obtain your instance here directly,
@@ -41,6 +43,8 @@ class EntityManager<T> {
     private final int[] taskIntervals;
     private final int[] baseValues;
     private final boolean[] autoStepZero;
+
+    private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final IntArray cacheIds = new IntArray(64), cacheVs = new IntArray(64);
 
@@ -118,7 +122,7 @@ class EntityManager<T> {
             indexConvert.put(bytes, index);
 
             StatusTable table = new StatusTable(attributes.length);
-            WritingImpl ws = new WritingImpl(attributes.length, cacheIds, cacheVs);
+            WritingImpl ws = new WritingImpl(resourceSize, attributes.length, cacheIds, cacheVs);
             for (WrappedAttributeProvider<T> wap : providers) {
                 wap.update(entity, ws);
                 for (int i = 0; i < ws.length; i++) table.accept(ws.ids.at(i), ws.vs.at(i));
@@ -287,6 +291,17 @@ class EntityManager<T> {
         return id == 0 || se != null && Arrays.equals(se.storeKey, convert.toBytes(entity));
     }
 
+    int findEntityIndex(T entity) {
+        if (entity == null) return -1;
+        byte[] bytes = convert.toBytes(entity);
+        if (bytes == null || bytes.length == 0) throw new IllegalStateException("Your IEntityConvert implementation returned a null or empty byte array, which is prohibited");
+        return indexConvert.getOrDefault(bytes, -1);
+    }
+
+    private int findEntityIndex(byte[] bytes) {
+        return bytes == null ? -1 : indexConvert.getOrDefault(bytes, -1);
+    }
+
     StatusEntity getEntity(int id) {
         return id >= 0 && id < entityMap.length ? entityMap[id] : null;
     }
@@ -403,17 +418,6 @@ class EntityManager<T> {
         }
     }
 
-    int findEntityIndex(T entity) {
-        if (entity == null) return -1;
-        byte[] bytes = convert.toBytes(entity);
-        if (bytes == null || bytes.length == 0) throw new IllegalStateException("Your IEntityConvert implementation returned a null or empty byte array, which is prohibited");
-        return indexConvert.getOrDefault(bytes, -1);
-    }
-
-    private int findEntityIndex(byte[] bytes) {
-        return bytes == null ? -1 : indexConvert.getOrDefault(bytes, -1);
-    }
-
     int updateProvider(T entity, String key) {
         int id = CommonUtils.binarySearch(providers, obj -> obj.name, key, String::compareTo);
         if (id >= 0) {
@@ -431,7 +435,7 @@ class EntityManager<T> {
             if (se.offline) resumeEntity(e, se);
 
             WrappedAttributeProvider<T> wap = providers[id];
-            WritingImpl ws = new WritingImpl(attributes.length, cacheIds, cacheVs);
+            WritingImpl ws = new WritingImpl(resourceSize, attributes.length, cacheIds, cacheVs);
             wap.update(e, ws);
             for (int i = 0; i < ws.length; i++) se.table.accept(ws.ids.at(i), ws.vs.at(i));
         }
@@ -484,9 +488,11 @@ class EntityManager<T> {
     private static class WritingImpl implements WritingStatus {
 
         private final int size;
+        private final int begin;
         private final IntArray ids, vs;
         private int length = 0;
-        private WritingImpl(int dataSize, IntArray ids, IntArray vs) {
+        private WritingImpl(int resourceSize, int dataSize, IntArray ids, IntArray vs) {
+            this.begin = resourceSize;
             this.size = dataSize;
             this.ids = ids;
             this.vs = vs;
@@ -494,7 +500,7 @@ class EntityManager<T> {
 
         @Override
         public void write(int id, int val) {
-            if (id < 0 || id >= size || id > Short.MAX_VALUE) return;
+            if (id < begin || id >= size || id > Short.MAX_VALUE || val == 0) return;
             int index = ids.indexOf(id, length);
             if (index < 0) {
                 (ids.size() == length ? ids.enlarge(length) : ids).set(length, id);

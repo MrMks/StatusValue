@@ -22,8 +22,11 @@ public interface IDataAccessor {
     /**
      * update methods only called once for each attribute in one life-cycle;
      */
+    @Deprecated
     void updateValue(String[] resourceName, int[] valueVersion, IResource.Updater[] updater);
+    @Deprecated
     void updateStore(String[] modifierName, int[] storeVersion, byte[] storeSize, IModifier.Updater[] updater);
+    @Deprecated
     void updateFinish();
 
     IEntityDataAccessor withEntity(byte[] entityKey) throws IOException;

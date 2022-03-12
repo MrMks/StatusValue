@@ -153,11 +153,8 @@ public class HandlerList<T> {
                     if (bc.reverse) {
                         if (srcI == 0) continue;
                         else if (!selfMod) {
-                            src = tar;
-                            tar = entry.src;
-
-                            srcI = tarI;
-                            tarI = entry.srcI;
+                            src = tar; tar = entry.src;
+                            srcI = tarI; tarI = entry.srcI;
                         }
                     }
 
@@ -186,7 +183,7 @@ public class HandlerList<T> {
                         }
                     } else {
                         // remove buff
-                        buffManager.removeBuff(srcI, tarI, data, bc.attributeOrOnce);
+                        buffManager.removeBuff(tarI, srcI, data, bc.attributeOrOnce);
                     }
                 }
                 sessionControl.applyAttribute();

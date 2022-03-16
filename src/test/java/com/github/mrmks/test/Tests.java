@@ -9,7 +9,6 @@ import com.github.mrmks.status.api.*;
 import com.github.mrmks.status.api.simple.SimpleAttribute;
 import com.github.mrmks.status.api.simple.SimpleResource;
 import com.github.mrmks.utils.IntMap;
-import com.github.mrmks.utils.StringIntMap;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -184,7 +183,7 @@ public class Tests {
         public IEntityDataAccessor withEntity(byte[] entityKey) {
             return new IEntityDataAccessor() {
                 @Override
-                public StringIntMap readValue() {
+                public ValuePair[] readValue() {
                     return null;
                 }
 
@@ -194,7 +193,7 @@ public class Tests {
                 }
 
                 @Override
-                public HashMap<String, int[]> readStore() {
+                public StorePair[] readStore() {
                     return null;
                 }
 

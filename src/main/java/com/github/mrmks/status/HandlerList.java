@@ -441,7 +441,7 @@ public class HandlerList<T> {
 
         @Override
         public Transaction beginTransaction(boolean reserve) {
-            if (reserve && srcI == 0) throw new IllegalArgumentException("You can nor begin transaction with reserve is true while the #isSrcSystem returns true");
+            if (reserve && srcI == 0) throw new IllegalArgumentException("You can not begin transaction with reserve is true while the #isSrcSystem returns true");
             return reserve && srcI != tarI ? directTransaction(tarI, srcI, tarRf, srcRf) : directTransaction(srcI, tarI, srcRf, tarRf);
         }
 

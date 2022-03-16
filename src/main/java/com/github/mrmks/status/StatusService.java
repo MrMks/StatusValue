@@ -113,7 +113,7 @@ public class StatusService<T> {
         handlerList.finishSession();
     }
 
-    // if we are not in session, we will start a session automate and finishSession automate.
+    // if we are not in session, we will start an auto-finish session.
     public Transaction startTransaction(T src, T tar) {
         chkRunning();
         return handlerList.beginTransaction(src, tar);

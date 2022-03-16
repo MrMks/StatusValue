@@ -95,6 +95,8 @@ class EntityManager<T> {
     /*
      * This method either create a new StatusEntity for the given entity or resume an offline entity
      * The shouldSave argument will be ignored when resume the offline entity.
+     *
+     * todo: load data in executor thread
      */
     void createEntity(T entity, boolean shouldSave) {
 

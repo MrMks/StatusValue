@@ -1,6 +1,8 @@
 package com.github.mrmks.utils;
 
+import java.util.ConcurrentModificationException;
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public abstract class ObjectIntMap<K> {
 
@@ -9,6 +11,7 @@ public abstract class ObjectIntMap<K> {
     protected int cap;
     protected int size;
     protected int linkCount;
+    private int modCount = 0;
 
     protected Entry<K>[] data;
 
@@ -173,7 +176,10 @@ public abstract class ObjectIntMap<K> {
                 }
             }
         }
-        if (!find) size++;
+        ++modCount;
+        if (!find) {
+            size++;
+        }
         if (link) linkCount++;
         return r;
     }
@@ -242,6 +248,7 @@ public abstract class ObjectIntMap<K> {
                 }
             }
         }
+        ++modCount;
         if (find) size--;
         if (link) linkCount--;
         return r;
@@ -257,6 +264,23 @@ public abstract class ObjectIntMap<K> {
 
     public boolean containKey(K key) {
         return find(key) != null;
+    }
+
+    public void clear() {
+        size = 0;
+        linkCount = 0;
+        for (int i = 0; i < data.length; i++) {
+            Entry<K> e = data[i], n;
+            if (e != null) {
+                data[i] = null;
+                do {
+                    n = e.next;
+                    e.prev = e.next = e.gapNext = null;
+                    e = n;
+                } while (e != null);
+            }
+        }
+        modCount++;
     }
 
     protected Entry<K> find(K key) {
@@ -294,15 +318,15 @@ public abstract class ObjectIntMap<K> {
     }
 
     public Iterator<K> keyIterator() {
-        throw new UnsupportedOperationException("keyIterator");
+        return new KeyIterator();
     }
 
     public IntIterator valueIterator() {
-        throw new UnsupportedOperationException("valueIterator");
+        return new ValueIterator();
     }
 
     public Iterator<ToIntEntry<K>> iterator() {
-        throw new UnsupportedOperationException("entryIterator");
+        return new EntryIterator();
     }
 
     public ObjectIntRoMap<K> readMap() {
@@ -353,6 +377,107 @@ public abstract class ObjectIntMap<K> {
         private void drop() {
             this.prev.next = this.next;
             this.next.prev = this.prev;
+        }
+    }
+
+    private abstract class AbstractIterator {
+        protected int expectedModCount;
+        protected Entry<K> current, head, next;
+        protected int index;
+
+        protected AbstractIterator() {
+            this.expectedModCount = modCount;
+            this.index = 0;
+            this.head = this.current = this.next = null;
+
+            Entry<K>[] t = data;
+            if (t != null && size > 0) {
+                while (index < t.length && (next = t[index]) == null) index++;
+            }
+        }
+
+        public final boolean hasNext() {
+            return next != null;
+        }
+
+        final Entry<K> nextNode() {
+            Entry<K>[] t;
+            Entry<K> e = next;
+            if (expectedModCount != modCount) throw new ConcurrentModificationException();
+            if (e == null) throw new NoSuchElementException();
+            if (current != null && current.gap > 0) head = current;
+            if ((next = (current = e).next) == null && (t = data) != null) {
+                while (index < t.length && (next = t[index]) == null) index++;
+            }
+            return e;
+        }
+
+        public final void remove() {
+            Entry<K> p = current;
+            if (p == null) throw new IllegalStateException();
+            if (expectedModCount != modCount) throw new ConcurrentModificationException();
+            if (p == p.prev) data[indexOf(p.h, cap)] = null;
+            else {
+                if (head == null) {
+                    next.prev = p.prev;
+                    p.next = null;
+                    copyLink(p, next);
+                    rightLink(next);
+                    data[index] = next;
+                } else {
+                    p.drop();
+                    if (p.gap > 0) copyLink(p, next);
+                    rightLink(head);
+                }
+                linkCount--;
+            }
+            current = null;
+            size--;
+            expectedModCount = ++modCount;
+        }
+    }
+
+    private class KeyIterator extends AbstractIterator implements Iterator<K> {
+        @Override
+        public K next() {
+            return nextNode().key;
+        }
+    }
+
+    private class ValueIterator extends AbstractIterator implements IntIterator {
+        @Override
+        public int next() {
+            return nextNode().val;
+        }
+    }
+
+    private class EntryIterator extends AbstractIterator implements Iterator<ToIntEntry<K>> {
+        @Override
+        public ToIntEntry<K> next() {
+            return new EntryImpl<>(nextNode());
+        }
+    }
+
+    private static class EntryImpl<K> implements ToIntEntry<K> {
+
+        private final Entry<K> entry;
+        EntryImpl(Entry<K> e) {
+            this.entry = e;
+        }
+
+        @Override
+        public K getKey() {
+            return entry.key;
+        }
+
+        @Override
+        public int getValue() {
+            return entry.val;
+        }
+
+        @Override
+        public int setValue(int value) {
+            return entry.setValue(value);
         }
     }
 }

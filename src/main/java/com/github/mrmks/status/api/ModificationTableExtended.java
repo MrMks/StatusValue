@@ -1,20 +1,18 @@
 package com.github.mrmks.status.api;
 
-public interface ModificationCache {
+public interface ModificationTableExtended extends ModificationTable {
 
-    boolean isSrcSystem();
-    boolean isSelfModify();
-
-    int getSrc(int id);
-    int getTar(int id);
-
-    void modifySrc(int id, int val);
-    void modifyTar(int id, int val);
-
+    @Deprecated
     void buffAttribute(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int duration, boolean anySource, boolean canRemove, boolean reverse);
+    @Deprecated
     void buffResource(String key, String tag, String icon, BuffType type, int[] idTar, int[] valTar, int[] idSrc, int[] valSrc, int interval, int count, boolean anySource, boolean canRemove, boolean reverse);
+    @Deprecated
     void buffModifier(String key, String tag, String icon, BuffType type, int id, int[] val, int interval, int count, boolean anySource, boolean canRemove, boolean reverse);
 
+    @Deprecated
     void removeBuffSrc(BuffType type, String key, String tag, boolean anySource, boolean once, boolean force);
+    @Deprecated
     void removeBuffTar(BuffType type, String key, String tag, boolean anySource, boolean once, boolean force);
+
+
 }

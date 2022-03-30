@@ -16,6 +16,8 @@ import static com.github.mrmks.status.Constants.*;
 /**
  * Consider to performance reasons, we can accept 32768(index from 0 to 32767) attributes, modifiers and handlers in maximum
  * This means we can use short type for id use.
+ *
+ * todo: update adapt layer api
  */
 public class Registry {
 
@@ -209,7 +211,7 @@ public class Registry {
             int[] modifierStoreCvt = new int[modifierMap.size()];
             while (it.hasNext()) {
                 IndexedModifier im = it.next();
-                SimpleDependency[] dps = im.modifier.getDependencies();
+                SimpleDependency[] dps = im.modifier.attributeDependencies();
                 short[] ids = dps.length == 0 ? EMPTY_ARY_SHORT : new short[dps.length];
                 for (i = 0; i < dps.length; ++i) {
                     if ((ids[i] = findDependency(dps[i], attributeMap)) == -2) break;

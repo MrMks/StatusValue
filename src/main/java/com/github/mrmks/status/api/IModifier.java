@@ -10,17 +10,18 @@ public interface IModifier {
     /**
      * Define the attribute dependencies.
      */
-    SimpleDependency[] getDependencies();
+    SimpleDependency[] attributeDependencies();
 
-    default SimpleDependency[] modifierDependencies() {
+    default SimpleDependency[] buffDependencies() {
         return null;
     }
 
     /**
-     * @param ids The ids array has the same order of {@link #getDependencies()}. minus means the optional dependency doesn't exist.
+     * @param mt
      * @param v the value of the handled value. now the v is an array with size smaller than 9;
+     * @param ids The ids array has the same order of {@link #attributeDependencies()}. minus means the optional dependency doesn't exist.
      */
-    void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar);
+    void handle(ModificationTableExtended mt, int sessionId, int[] v, int[] dataSrc, int[] dataTar, short[] ids);
 
     /*
      * For some functional requirement, you may need some data associated with the entity stored.

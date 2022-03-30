@@ -143,11 +143,11 @@ public class HandlerList<T> {
                     continue;
                 }
 
-                ModificationTable mt = entry.mTable;
+                ModificationTableImpl mt = entry.mTable;
                 sessionControl.applyBuff();
-                Iterator<ModificationTable.BuffCache> itBuffs = entry.mTable.buffCaches.iterator();
+                Iterator<ModificationTableImpl.BuffCache> itBuffs = entry.mTable.buffCaches.iterator();
                 while (itBuffs.hasNext()) {
-                    ModificationTable.BuffCache bc = itBuffs.next();
+                    ModificationTableImpl.BuffCache bc = itBuffs.next();
                     itBuffs.remove();
 
                     if (bc.reverse) {
@@ -246,7 +246,7 @@ public class HandlerList<T> {
             }
         }
         sessionControl.beginModifier();
-        ModificationTable mTable = new ModificationTable(srcR, tarR, resourceSize, srcI == 0, srcI == tarI);
+        ModificationTableImpl mTable = new ModificationTableImpl(srcR, tarR, resourceSize, srcI == 0, srcI == tarI);
         WrappedModifier wm = modifierAry[mId];
         wm.handle(mVal, mTable, sessionId, entityManager.getModifierStore(srcI, wm.dataIndex), srcI == tarI ? Constants.EMPTY_ARY_INT : entityManager.getModifierStore(tarI, wm.dataIndex));
         mTable.trimToSize();
@@ -481,8 +481,8 @@ public class HandlerList<T> {
     private static class ModCache<T> {
         T src, tar;
         int srcI, tarI;
-        ModificationTable mTable;
-        private ModCache(T src, T tar, int srcI, int tarI, ModificationTable mt) {
+        ModificationTableImpl mTable;
+        private ModCache(T src, T tar, int srcI, int tarI, ModificationTableImpl mt) {
             this.src = src;
             this.tar = tar;
             this.srcI = srcI;

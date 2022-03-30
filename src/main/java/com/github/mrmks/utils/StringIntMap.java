@@ -1,193 +1,172 @@
 package com.github.mrmks.utils;
 
 import java.util.Arrays;
+import java.util.Iterator;
 
-public class StringIntMap {
-    private int cap;
-    private int size = 0;
-    private int linkCount = 0;
-    private String[][] ks;
-    private int[][] vs;
-
-    public StringIntMap() {
-        this.cap = 16;
-    }
-
-    public StringIntMap(int initCapacity) {
-        this.cap = 16;
-        initCapacity = Math.min(initCapacity, 0x40000000);
-        while (this.cap < (initCapacity >>> 4)) this.cap <<= 4;
-        while (this.cap < initCapacity) this.cap <<= 1;
-    }
+public class StringIntMap extends ObjectIntMap<String> {
 
     private static int hash(String key) {
         int h;
         return key == null ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
-    private static int indexOf(int h, int length) {
-        return h & (length - 1);
+    private static int compare(String key, String old) {
+        if (key == null && old == null) return 0;
+        else if (key == null) return -1;
+        else if (old == null) return 1;
+        else return key.compareTo(old);
     }
 
-    private static boolean keyEqual(String k1, String k2) {
-        return k1 == null && k2 == null || k1 != null && k1.equals(k2);
+    @Override
+    protected int keyHash(String key) {
+        return hash(key);
     }
 
-    public int put(String key, int val) {
-        if (vs == null) {
-            ks = new String[cap][];
-            vs = new int[cap][];
-        }
-        int i = indexOf(hash(key), cap);
-        int[] v = vs[i];
-        if (v == null) {
-            v = vs[i] = new int[5];
-            (ks[i] = new String[4])[0] = key;
-            v[0] = 1;
-            v[1] = val;
-            size++;
-        } else if (v[0] == 0) {
-            v[0] = 1;
-            v[1] = val;
-            ks[i][0] = key;
-            size++;
-        } else {
-            String[] k = ks[i];
-            for (int j = 1; j < v[0] + 1; j++) {
-                if (keyEqual(k[j - 1], key)) {
-                    int r = v[j];
-                    v[j] = val;
-                    return r;
-                }
-            }
-            linkCount++;
-            size++;
-            if (v[0] + 1 >= v.length) {
-                vs[i] = v = Arrays.copyOf(v, (v.length << 1) - 1);
-                ks[i] = k = Arrays.copyOf(k, k.length << 1);
-            }
-            v[0] ++;
-            v[v[0]] = val;
-            k[v[0] - 1] = key;
+    @Override
+    protected int keyCompare(String key, String old) {
+        return compare(key, old);
+    }
 
-            if (size >= cap && linkCount > (cap >>> 2) && (cap > 0 && cap <= 0x40000000)) {
-                int nextCap = cap << 1;
-                String[][] nextKs = new String[nextCap][];
-                int[][] nextVs = new int[nextCap][];
+    @Override
+    public ObjectIntRoMap<String> readMap() {
+        int len = 0;
 
-                linkCount = 0;
-                for (i = 0; i < cap; i++) {
-                    if (vs[i] != null && vs[i][0] > 0) {
-                        v = nextVs[i] = vs[i];
-                        k = nextKs[i] = ks[i];
-                        int[] nv = new int[v.length];
-                        String[] nk = new String[k.length];
-                        int n0 = 1, n1 = 1;
-                        for (int j = 1; j < v[0] + 1; j++) {
-                            int ni = indexOf(hash(k[j - 1]), nextCap);
-                            if (ni != i) {
-                                nv[n1] = v[j];
-                                nk[n1 - 1] = k[j - 1];
-                                n1++;
-                                k[j - 1] = null;
-                            } else {
-                                if (n0 < j) {
-                                    v[n0] = v[j];
-                                    k[n0 - 1] = k[j - 1];
-                                    k[j - 1] = null;
-                                }
-                                n0 ++;
-                            }
-                        }
-                        v[0] = n0 - 1;
-                        nv[0] = n1 - 1;
-                        if (n0 > 2) linkCount += n0 - 2;
-                        if (n1 >= 2) {
-                            linkCount += n1 - 2;
-                            nextKs[i + cap] = nk;
-                            nextVs[i + cap] = nv;
-                        }
-                    }
-                }
-                cap = nextCap;
-                ks = nextKs;
-                vs = nextVs;
+        for (Entry<String> e : data) if (e != null) len++;
+
+        int[] cvt = new int[(len << 1) + 1];
+        cvt[len << 1] = size;
+
+        int h = 0, c = 0;
+        String[] ks = new String[size];
+        int[] vs = new int[size];
+        for (int i = 0; i < data.length; i++) {
+            Entry<String> e = data[i];
+            if (e != null) {
+                cvt[h] = i;
+                cvt[len + h] = c;
+                h++;
+                do {
+                    ks[c] = e.key;
+                    vs[c] = e.val;
+                    c ++;
+                } while ((e = e.next) != null);
             }
         }
-        return 0;
+        return new ReadOnly(cap, size, cvt, len, ks, vs);
     }
 
-    public int get(String key) {
-        return getOrDefault(key, 0);
-    }
+    private static class ReadOnly implements ObjectIntRoMap<String> {
 
-    public int getOrDefault(String key, int def) {
-        if (vs != null) {
+        private final int cap, size, len;
+        private final int[] cvt;
+        private final String[] ks;
+        private final int[] vs;
+
+        private ReadOnly(int cap, int size, int[] cvt, int len, String[] ks, int[] vs) {
+            this.cap = cap;
+            this.size = size;
+            this.cvt = cvt;
+            this.len = len;
+            this.ks = ks;
+            this.vs = vs;
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return size == 0;
+        }
+
+        @Override
+        public int get(String key) {
+            return getOrDefault(key, 0);
+        }
+
+        @Override
+        public int getOrDefault(String key, int def) {
             int h = hash(key);
             int i = indexOf(h, cap);
-            int[] v = vs[i];
-            if (v != null) {
-                String[] k = ks[i];
-                for (int j = 1; j < v[0] + 1; j++)
-                    if (keyEqual(k[j - 1], key))
-                        return v[j];
+            int j = Arrays.binarySearch(cvt, 0, len, i);
+            if (j > 0) {
+                j = Arrays.binarySearch(ks, cvt[j + len], cvt[j + len + 1], key, StringIntMap::compare);
+                return j < 0 ? def : vs[j];
+            }
+            return def;
+        }
+
+        @Override
+        public Iterator<String> keyIterator() {
+            return new KeyIterator();
+        }
+
+        @Override
+        public IntIterator valueIterator() {
+            return new ValueIterator();
+        }
+
+        @Override
+        public Iterator<ToIntEntry<String>> iterator() {
+            return new EntryIterator();
+        }
+
+        private class KeyIterator implements Iterator<String> {
+            private int i = 0;
+
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public String next() {
+                return ks[i++];
             }
         }
-        return def;
-    }
 
-    public int remove(String key) {
-        if (vs != null) {
-            int h = hash(key);
-            int i = indexOf(h, cap);
-            int[] v = vs[i];
-            if (v != null) {
-                String[] k = ks[i];
-                for (int j = 1; j < v[0] + 1; j++) {
-                    if (keyEqual(k[j - 1], key)) {
-                        int r = v[j];
-                        if (j < v[0]) {
-                            System.arraycopy(k, j, k, j - 1, v[0] - j);
-                            System.arraycopy(v, j + 1, v, j, v[0] - j);
-                        }
-                        k[v[0] - 1] = null;
-                        size --;
-                        if (v[0] > 1) linkCount--;
-                        v[0] --;
-                        return r;
-                    }
-                }
+        private class ValueIterator implements IntIterator {
+            private int i = 0;
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public int next() {
+                return vs[i++];
             }
         }
-        return 0;
-    }
 
-    public boolean containKey(String key) {
-        if (vs != null) {
-            int h = hash(key);
-            int i = indexOf(h, cap);
-            int[] v = vs[i];
-            if (v != null) {
-                String[] k = ks[i];
-                for (int j = 1; j < v[0]; j++)
-                    if (keyEqual(k[j - 1], key)) return true;
+        private class EntryIterator implements Iterator<ToIntEntry<String>> {
+            private int i = 0;
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public ToIntEntry<String> next() {
+                return new EntryImpl(i++);
             }
         }
-        return false;
-    }
 
-    public int size() {
-        return size;
-    }
+        private class EntryImpl implements ToIntEntry<String> {
+            private final int i;
+            private EntryImpl(int i) {
+                this.i = i;
+            }
+            @Override
+            public String getKey() {
+                return ks[i];
+            }
 
-    public boolean isEmpty() {
-        return size == 0;
-    }
-
-    public void clear() {
-        for (String[] k : ks) if (k != null) Arrays.fill(k, null);
-        for (int[] v : vs) if (v != null) v[0] = 0;
-        linkCount = 0;
-        size = 0;
+            @Override
+            public int getValue() {
+                return vs[i];
+            }
+        }
     }
 }

@@ -1,5 +1,8 @@
 package com.github.mrmks.status.adapt;
 
+import com.github.mrmks.status.adapt.data.StorePair;
+import com.github.mrmks.status.adapt.data.ValuePair;
+
 import java.io.IOException;
 import java.util.OptionalInt;
 
@@ -24,23 +27,5 @@ public interface IEntityDataAccessor {
      * After this method, any method invocation of this object should not perform anything.
      */
     void flushAndClose() throws IOException;
-
-    public static class ValuePair {
-        String key;
-        int value;
-        public ValuePair(String k, int v) {
-            this.key = k;
-            this.value = v;
-        }
-    }
-
-    public static class StorePair {
-        String key;
-        int[] store;
-        public StorePair(String k, int[] v) {
-            this.key = k;
-            this.store = v;
-        }
-    }
 
 }

@@ -1,7 +1,7 @@
 package com.github.mrmks.status;
 
 import com.github.mrmks.status.api.BuffType;
-import com.github.mrmks.status.api.ModificationCache;
+import com.github.mrmks.status.api.ModificationTableExtended;
 import com.github.mrmks.utils.IntArray;
 
 import java.util.LinkedList;
@@ -10,7 +10,7 @@ import java.util.LinkedList;
  * This is a table contains two StatusTable.Readonly and contains two array pair to log the modification of to status
  */
 
-class ModificationTable implements ModificationCache {
+class ModificationTableImpl implements ModificationTableExtended {
 
     private final int size;
     private final StatusTable.Readonly src, tar;
@@ -22,7 +22,7 @@ class ModificationTable implements ModificationCache {
     private final boolean srcSystem;
     private final boolean selfModify;
 
-    ModificationTable(StatusTable.Readonly src, StatusTable.Readonly tar, int size, boolean srcSystem, boolean selfModify) {
+    ModificationTableImpl(StatusTable.Readonly src, StatusTable.Readonly tar, int size, boolean srcSystem, boolean selfModify) {
         this.tar = tar;
         this.tarId = new IntArray(8);
         this.tarVal = new IntArray(8);

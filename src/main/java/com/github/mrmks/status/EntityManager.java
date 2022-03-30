@@ -4,16 +4,17 @@ import com.github.mrmks.status.adapt.IDataAccessor;
 import com.github.mrmks.status.adapt.IEntityConvert;
 import com.github.mrmks.status.adapt.IEntityDataAccessor;
 import com.github.mrmks.status.adapt.ILogger;
+import com.github.mrmks.status.adapt.data.StorePair;
+import com.github.mrmks.status.adapt.data.ValuePair;
 import com.github.mrmks.status.api.WritingStatus;
-import com.github.mrmks.utils.ByteArrayToIntMap;
-import com.github.mrmks.utils.CommonUtils;
-import com.github.mrmks.utils.IntArray;
-import com.github.mrmks.utils.IntQueue;
+import com.github.mrmks.utils.*;
 
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
  * The T is the entity instance of your game, but we don't obtain your instance here directly,
@@ -28,6 +29,7 @@ class EntityManager<T> {
     private final ILogger logger;
 
     private final WrappedAttribute<T>[] attributes;
+    private final StringIntMap attributeConvertMap;
     private final WrappedAttributeProvider<T>[] providers;
     private final int resourceSize;
     private final int resourceSize2;
@@ -44,6 +46,7 @@ class EntityManager<T> {
     private final int[] baseValues;
     private final boolean[] autoStepZero;
 
+    private final ReentrantReadWriteLock lock = new ReentrantReadWriteLock();
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final IntArray cacheIds = new IntArray(64), cacheVs = new IntArray(64);
@@ -83,6 +86,7 @@ class EntityManager<T> {
         this.nextIndex = 1;
 
         this.removingQueue = new IntQueue();
+        this.attributeConvertMap = null;
 
         byte[] sysBytes = new byte[0];
         entityMap[0] = new StatusEntity(sysBytes, null, null, false, 0, null);
@@ -549,4 +553,64 @@ class EntityManager<T> {
         }
     }
 
+    private class EntityDataLoadRunner implements Runnable {
+
+        private int target;
+        private StatusEntity se;
+
+        private EntityDataLoadRunner(int i, StatusEntity se) {
+            target = i;
+            this.se = se;
+        }
+
+        @Override
+        public void run() {
+            try {
+                while (!lock.readLock().tryLock(50, TimeUnit.MILLISECONDS));
+            } catch (InterruptedException e) {
+                return;
+            }
+            {
+                StatusEntity _se = entityMap[target];
+                if (_se == null || _se != se) return;
+            }
+            lock.readLock().unlock();
+
+            IEntityDataAccessor dea;
+            try {
+                dea = dataAccessor.withEntity(se.storeKey);
+                if (dea == null) throw new BrokenImplementationException();
+            } catch (IOException | BrokenImplementationException e) {
+                logger.severe("Unable to load data for entity: " + convert.familiarName(se.storeKey), e);
+                return;
+            }
+
+            ValuePair[] vps;
+            try {
+                vps = dea.readValue();
+            } catch (IOException e) {
+                logger.severe("Unable to load data for entity: " + convert.familiarName(se.storeKey), e);
+                vps = null;
+            }
+            if (vps != null) {
+                StatusTable st = se.table;
+                for (ValuePair vp : vps) {
+                    if (vp != null) {
+                        int id = attributeConvertMap.getOrDefault(vp.getKey(), -1);
+                        st.accept(id, vp.getValue());
+                    }
+                }
+            }
+
+            StorePair[] sps;
+            try {
+                sps = dea.readStore();
+            } catch (IOException e) {
+                logger.severe("Unable to load stored modifier data for entity: " + convert.familiarName(se.storeKey), e);
+                sps = null;
+            }
+            if (sps != null) {
+            }
+        }
+    }
 }

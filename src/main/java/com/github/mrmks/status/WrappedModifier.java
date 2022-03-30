@@ -1,7 +1,7 @@
 package com.github.mrmks.status;
 
 import com.github.mrmks.status.api.IModifier;
-import com.github.mrmks.status.api.ModificationCache;
+import com.github.mrmks.status.api.ModificationTableExtended;
 
 abstract class WrappedModifier {
     final IModifier modifier;
@@ -19,8 +19,8 @@ abstract class WrappedModifier {
     protected abstract short[] getSortedIds();
     protected abstract int handlerSize();
 
-    void handle(int[] value, ModificationCache table, int session, int[] src, int[] tar) {
-        modifier.handle(getIds(), value, table, session, src, tar);
+    void handle(int[] value, ModificationTableExtended table, int session, int[] src, int[] tar) {
+        modifier.handle(table, session, value, src, tar, getIds());
     }
 
 }

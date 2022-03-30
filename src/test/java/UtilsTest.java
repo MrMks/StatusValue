@@ -35,9 +35,9 @@ public class UtilsTest {
 
         Assertions.assertEquals(25, map.size());
 
-        Assertions.assertEquals(2, map.get("2"));
+        Assertions.assertEquals(2, map.getOrDefault("2", 0));
 
-        Assertions.assertEquals(16, map.get("16"));
+        Assertions.assertEquals(16, map.getOrDefault("16", 0));
 
         Assertions.assertEquals(7, map.remove("7"));
         Assertions.assertEquals(24, map.size());

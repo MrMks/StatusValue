@@ -5,6 +5,8 @@ import com.github.mrmks.status.StatusService;
 import com.github.mrmks.status.adapt.IDataAccessor;
 import com.github.mrmks.status.adapt.IEntityConvert;
 import com.github.mrmks.status.adapt.IEntityDataAccessor;
+import com.github.mrmks.status.adapt.data.StorePair;
+import com.github.mrmks.status.adapt.data.ValuePair;
 import com.github.mrmks.status.api.*;
 import com.github.mrmks.status.api.simple.SimpleAttribute;
 import com.github.mrmks.status.api.simple.SimpleResource;
@@ -55,7 +57,7 @@ public class Tests {
         }
 
         @Override
-        public SimpleDependency[] getDependencies() {
+        public SimpleDependency[] attributeDependencies() {
             return new SimpleDependency[]{
                     SimpleDependency.newRequired("test:health"),
                     SimpleDependency.newRequired("test:attack"),
@@ -64,7 +66,7 @@ public class Tests {
         }
 
         @Override
-        public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+        public void handle(ModificationTableExtended mt, int sessionId, int[] v, int[] dataSrc, int[] dataTar, short[] ids) {
             mt.modifyTar(ids[0], Math.min(mt.getTar(ids[2]) - mt.getSrc(ids[1]),0));
         }
     }
@@ -77,14 +79,14 @@ public class Tests {
         }
 
         @Override
-        public SimpleDependency[] getDependencies() {
+        public SimpleDependency[] attributeDependencies() {
             return new SimpleDependency[]{
                     SimpleDependency.newRequired("test:health"),
             };
         }
 
         @Override
-        public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+        public void handle(ModificationTableExtended mt, int sessionId, int[] v, int[] dataSrc, int[] dataTar, short[] ids) {
             mt.modifyTar(ids[0], 1);
             mt.buffResource("heal", "", "", BuffType.POSITIVE, new int[]{ids[0]}, new int[]{1}, null, null, 0, 5, true, true, false);
         }
@@ -98,14 +100,14 @@ public class Tests {
         }
 
         @Override
-        public SimpleDependency[] getDependencies() {
+        public SimpleDependency[] attributeDependencies() {
             return new SimpleDependency[] {
                     SimpleDependency.newRequired("test:attack")
             };
         }
 
         @Override
-        public void handle(short[] ids, int[] v, ModificationCache mt, int sessionId, int[] dataSrc, int[] dataTar) {
+        public void handle(ModificationTableExtended mt, int sessionId, int[] v, int[] dataSrc, int[] dataTar, short[] ids) {
             mt.buffAttribute("weaken", "", "", BuffType.NEGATIVE, new int[]{ids[0]}, new int[]{-2}, null, null, 2, true, true, false);
         }
     }

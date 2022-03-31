@@ -1,9 +1,12 @@
 package com.github.mrmks.utils;
 
-import java.util.Arrays;
-import java.util.Iterator;
-
 public class StringIntMap extends ObjectIntMap<String> {
+
+    public StringIntMap() {}
+
+    public StringIntMap(int cap) {
+        super(cap);
+    }
 
     private static int hash(String key) {
         int h;
@@ -28,145 +31,29 @@ public class StringIntMap extends ObjectIntMap<String> {
     }
 
     @Override
-    public ObjectIntRoMap<String> readMap() {
-        int len = 0;
-
-        for (Entry<String> e : data) if (e != null) len++;
-
-        int[] cvt = new int[(len << 1) + 1];
-        cvt[len << 1] = size;
-
-        int h = 0, c = 0;
-        String[] ks = new String[size];
-        int[] vs = new int[size];
-        for (int i = 0; i < data.length; i++) {
-            Entry<String> e = data[i];
-            if (e != null) {
-                cvt[h] = i;
-                cvt[len + h] = c;
-                h++;
-                do {
-                    ks[c] = e.key;
-                    vs[c] = e.val;
-                    c ++;
-                } while ((e = e.next) != null);
-            }
-        }
-        return new ReadOnly(cap, size, cvt, len, ks, vs);
+    protected String[] createArray(int size) {
+        return new String[size];
     }
 
-    private static class ReadOnly implements ObjectIntRoMap<String> {
+    @Override
+    protected ObjectIntRoMap<String> createNonEmpty(int cap, int size, int[] cvt, int len, String[] strings, int[] vs) {
+        return new Readonly(cap, size, cvt, len, strings, vs);
+    }
 
-        private final int cap, size, len;
-        private final int[] cvt;
-        private final String[] ks;
-        private final int[] vs;
-
-        private ReadOnly(int cap, int size, int[] cvt, int len, String[] ks, int[] vs) {
-            this.cap = cap;
-            this.size = size;
-            this.cvt = cvt;
-            this.len = len;
-            this.ks = ks;
-            this.vs = vs;
+    private static class Readonly extends ObjectIntMap.Readonly<String> {
+        private Readonly(int cap, int size, int[] cvt, int len, String[] ks, int[] vs) {
+            super(cap, size, cvt, len, ks, vs);
         }
 
         @Override
-        public int size() {
-            return size;
+        protected int hash(String key) {
+            return StringIntMap.hash(key);
         }
 
         @Override
-        public boolean isEmpty() {
-            return size == 0;
-        }
-
-        @Override
-        public int get(String key) {
-            return getOrDefault(key, 0);
-        }
-
-        @Override
-        public int getOrDefault(String key, int def) {
-            int h = hash(key);
-            int i = indexOf(h, cap);
-            int j = Arrays.binarySearch(cvt, 0, len, i);
-            if (j > 0) {
-                j = Arrays.binarySearch(ks, cvt[j + len], cvt[j + len + 1], key, StringIntMap::compare);
-                return j < 0 ? def : vs[j];
-            }
-            return def;
-        }
-
-        @Override
-        public Iterator<String> keyIterator() {
-            return new KeyIterator();
-        }
-
-        @Override
-        public IntIterator valueIterator() {
-            return new ValueIterator();
-        }
-
-        @Override
-        public Iterator<ToIntEntry<String>> iterator() {
-            return new EntryIterator();
-        }
-
-        private class KeyIterator implements Iterator<String> {
-            private int i = 0;
-
-            @Override
-            public boolean hasNext() {
-                return i < size;
-            }
-
-            @Override
-            public String next() {
-                return ks[i++];
-            }
-        }
-
-        private class ValueIterator implements IntIterator {
-            private int i = 0;
-            @Override
-            public boolean hasNext() {
-                return i < size;
-            }
-
-            @Override
-            public int next() {
-                return vs[i++];
-            }
-        }
-
-        private class EntryIterator implements Iterator<ToIntEntry<String>> {
-            private int i = 0;
-            @Override
-            public boolean hasNext() {
-                return i < size;
-            }
-
-            @Override
-            public ToIntEntry<String> next() {
-                return new EntryImpl(i++);
-            }
-        }
-
-        private class EntryImpl implements ToIntEntry<String> {
-            private final int i;
-            private EntryImpl(int i) {
-                this.i = i;
-            }
-            @Override
-            public String getKey() {
-                return ks[i];
-            }
-
-            @Override
-            public int getValue() {
-                return vs[i];
-            }
+        protected int compare(String key, String old) {
+            return StringIntMap.compare(key, old);
         }
     }
+
 }

@@ -1,12 +1,15 @@
 package com.github.mrmks.utils;
 
+import java.util.Arrays;
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
 import java.util.NoSuchElementException;
 
-public abstract class ObjectIntMap<K> {
+public abstract class ObjectIntMap<K> implements Iterable<ToIntEntry<K>> {
 
     protected static final int LINK_GAP = 8;
+    private static final int MAXIMUM_CAPACITY = 1 << 30;
+    private static final int MINIMUM_CAPACITY = 16;
 
     protected int cap;
     protected int size;
@@ -14,6 +17,24 @@ public abstract class ObjectIntMap<K> {
     private int modCount = 0;
 
     protected Entry<K>[] data;
+
+    public ObjectIntMap() {
+        this.cap = MINIMUM_CAPACITY;
+    }
+
+    public ObjectIntMap(int cap) {
+        this.cap = tableSizeOf(cap);
+    }
+
+    static int tableSizeOf(int cap) {
+        int n = cap - 1;
+        n |= n >>> 1;
+        n |= n >>> 2;
+        n |= n >>> 4;
+        n |= n >>> 8;
+        n |= n >>> 16;
+        return (n < 0) ? MINIMUM_CAPACITY : (n >= MAXIMUM_CAPACITY) ? MAXIMUM_CAPACITY : n + 1;
+    }
 
     protected static int indexOf(int h, int cap) {
         return h & (cap - 1);
@@ -47,6 +68,11 @@ public abstract class ObjectIntMap<K> {
                 copyLink(n, h);
             }
             h.gap += 1;
+        } else {
+            if (h.next != null) {
+                h.gapNext = h.next;
+                h.gap = 1;
+            }
         }
     }
 
@@ -66,7 +92,7 @@ public abstract class ObjectIntMap<K> {
     public int put(K key, int val) {
         if (data == null) data = createData(cap);
         else {
-            if (linkCount > (cap >>> 2) && size > 16 && cap > 0 && size > cap && size < Integer.MAX_VALUE) {
+            if (linkCount > (cap >>> 2) && size > 16 && cap < MAXIMUM_CAPACITY && size > cap && size < Integer.MAX_VALUE) {
                 Entry<K>[] old = data;
                 int oldCap = cap;
                 cap <<= 1;
@@ -80,8 +106,11 @@ public abstract class ObjectIntMap<K> {
                         if (indexOf(e.h, cap) == i) {
                             if (l == null) {
                                 (lh = l = e.prev = e).gap = 0;
+                                lh.gapNext = lh;
                             } else {
                                 e.end(l.prev, l);
+                                e.gap = 0;
+                                e.gapNext = e;
                                 lh.gap += 1;
                                 lh.gapNext = e;
                                 if (lh.gap == LINK_GAP) (lh = e).gap = 0;
@@ -90,8 +119,11 @@ public abstract class ObjectIntMap<K> {
                         } else {
                             if (r == null) {
                                 (rh = r = e.prev = e).gap = 0;
+                                rh.gapNext = rh;
                             } else {
                                 e.end(r.prev, r);
+                                e.gap = 0;
+                                e.gapNext = e;
                                 rh.gap += 1;
                                 rh.gapNext = e;
                                 if (rh.gap == LINK_GAP) (rh = e).gap = 0;
@@ -127,6 +159,7 @@ public abstract class ObjectIntMap<K> {
 
                 copyLink(head, e);
                 leftLink(e);
+                data[i] = e;
             } else {
                 if (end == head || end == null) {
                     link = true;
@@ -190,59 +223,63 @@ public abstract class ObjectIntMap<K> {
     }
 
     public int remove(K key) {
+        if (data == null) return 0;
         int h = keyHash(key);
         int i = indexOf(h, cap);
         Entry<K> head = data[i];
         boolean find = false, link = false;
         int r = 0;
-        if (head.prev == head) {
-            if (head.h == h && keyCompare(head.key, key) == 0) {
-                data[i] = null;
-                find = true;
-                r =  head.val;
-            }
-        } else {
-            int cmp = keyCompare(key, head.key);
-            if (cmp == 0) {
-                (data[i] = head.next).prev = head.prev;
-                copyLink(head, head.next);
-                rightLink(head.next);
-                find = link = true;
-                r = head.val;
-            } else if (cmp > 0){
-                Entry<K> end = head.prev;
-                cmp = keyCompare(key, end.key);
+        if (head != null) {
+            if (head.prev == head) {
+                if (head.h == h && keyCompare(head.key, key) == 0) {
+                    data[i] = null;
+                    find = true;
+                    r = head.val;
+                }
+            } else {
+                int cmp = keyCompare(key, head.key);
                 if (cmp == 0) {
-                    while (head.gapNext.gapNext != end) head = head.gapNext;
-                    (head.prev = end.prev).next = null;
-                    rightLink(head);
+                    (data[i] = head.next).prev = head.prev;
+                    copyLink(head, head.next);
+                    rightLink(head.next);
                     find = link = true;
-                    r = end.val;
-                } else if (cmp < 0){
-                    Entry<K> po = head;
-                    do {
-                        head = po;
-                        po = po.gapNext;
-                        cmp = keyCompare(key, po.key);
-                    } while (po != end && cmp > 0);
+                    r = head.val;
+                } else if (cmp > 0) {
+                    Entry<K> end = head.prev;
+                    cmp = keyCompare(key, end.key);
                     if (cmp == 0) {
-                        po.drop();
-                        copyLink(po, po.next);
-                        rightLink(po.next);
+                        (head.prev = end.prev).next = null;
+                        while (head.gapNext.gapNext != end) head = head.gapNext;
+                        head.gapNext = end.prev;
+                        head.gap -= 1;
                         find = link = true;
-                        r = po.val;
-                    } else {
-                        Entry<K> pe = po;
-                        po = head;
+                        r = end.val;
+                    } else if (cmp < 0) {
+                        Entry<K> po = head;
                         do {
-                            po = po.next;
+                            head = po;
+                            po = po.gapNext;
                             cmp = keyCompare(key, po.key);
-                        } while (pe != po && cmp > 0);
+                        } while (po != end && cmp > 0);
                         if (cmp == 0) {
                             po.drop();
-                            rightLink(head);
+                            copyLink(po, po.next);
+                            rightLink(po.next);
                             find = link = true;
                             r = po.val;
+                        } else {
+                            Entry<K> pe = po;
+                            po = head;
+                            do {
+                                po = po.next;
+                                cmp = keyCompare(key, po.key);
+                            } while (pe != po && cmp > 0);
+                            if (cmp == 0) {
+                                po.drop();
+                                rightLink(head);
+                                find = link = true;
+                                r = po.val;
+                            }
                         }
                     }
                 }
@@ -269,15 +306,14 @@ public abstract class ObjectIntMap<K> {
     public void clear() {
         size = 0;
         linkCount = 0;
-        for (int i = 0; i < data.length; i++) {
+        for (int i = 0; i < (data == null ? 0 : data.length); i++) {
             Entry<K> e = data[i], n;
             if (e != null) {
                 data[i] = null;
                 do {
                     n = e.next;
                     e.prev = e.next = e.gapNext = null;
-                    e = n;
-                } while (e != null);
+                } while ((e = n) != null);
             }
         }
         modCount++;
@@ -286,7 +322,7 @@ public abstract class ObjectIntMap<K> {
     protected Entry<K> find(K key) {
         int h = keyHash(key);
         int i = indexOf(h, cap);
-        Entry<K> head = data[i];
+        Entry<K> head = data == null ? null : data[i];
         if (head != null) {
             int cmp = keyCompare(key, head.key);
             if (cmp == 0) return head;
@@ -330,8 +366,37 @@ public abstract class ObjectIntMap<K> {
     }
 
     public ObjectIntRoMap<K> readMap() {
-        throw new UnsupportedOperationException("readMap");
+        int len = 0;
+
+        for (Entry<K> e : data) if (e != null) len++;
+        if (len > 0) {
+            int[] cvt = new int[(len << 1) + 1];
+            cvt[len << 1] = size;
+
+            int h = 0, c = 0;
+            K[] ks = createArray(size);
+            int[] vs = new int[size];
+            for (int i = 0; i < data.length; i++) {
+                Entry<K> e = data[i];
+                if (e != null) {
+                    cvt[h] = i;
+                    cvt[len + h] = c;
+                    h++;
+                    do {
+                        ks[c] = e.key;
+                        vs[c] = e.val;
+                        c++;
+                    } while ((e = e.next) != null);
+                }
+            }
+            return createNonEmpty(cap, size, cvt, len, ks, vs);
+        } else {
+            return new EmptyReadonly<>();
+        }
     }
+
+    protected abstract K[] createArray(int size);
+    protected abstract ObjectIntRoMap<K> createNonEmpty(int cap, int size, int[] cvt, int len, K[] ks, int[] vs);
 
     protected abstract int keyHash(K key);
     protected abstract int keyCompare(K key, K old);
@@ -392,7 +457,8 @@ public abstract class ObjectIntMap<K> {
 
             Entry<K>[] t = data;
             if (t != null && size > 0) {
-                while (index < t.length && (next = t[index]) == null) index++;
+                //noinspection StatementWithEmptyBody
+                while (index < t.length && (next = t[index++]) == null);
             }
         }
 
@@ -407,7 +473,8 @@ public abstract class ObjectIntMap<K> {
             if (e == null) throw new NoSuchElementException();
             if (current != null && current.gap > 0) head = current;
             if ((next = (current = e).next) == null && (t = data) != null) {
-                while (index < t.length && (next = t[index]) == null) index++;
+                //noinspection StatementWithEmptyBody
+                while (index < t.length && (next = t[index++]) == null);
             }
             return e;
         }
@@ -480,4 +547,181 @@ public abstract class ObjectIntMap<K> {
             return entry.setValue(value);
         }
     }
+
+    protected static abstract class Readonly<K> implements ObjectIntRoMap<K> {
+
+        private final int cap, size, len;
+        private final int[] cvt;
+        private final K[] ks;
+        private final int[] vs;
+
+        protected Readonly(int cap, int size, int[] cvt, int len, K[] ks, int[] vs) {
+            this.cap = cap;
+            this.size = size;
+            this.cvt = cvt;
+            this.len = len;
+            this.ks = ks;
+            this.vs = vs;
+        }
+
+        @Override
+        public int size() {
+            return size;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return size == 0;
+        }
+
+        @Override
+        public int getOrDefault(K key, int def) {
+            int h = hash(key);
+            int i = indexOf(h, cap);
+            int j = Arrays.binarySearch(cvt, 0, len, i);
+            if (j >= 0) {
+                j = Arrays.binarySearch(ks, cvt[j + len], cvt[j + len + 1], key, this::compare);
+                return j < 0 ? def : vs[j];
+            }
+            return def;
+        }
+
+        protected abstract int hash(K key);
+        protected abstract int compare(K key, K old);
+
+        @Override
+        public Iterator<K> keyIterator() {
+            return new KeyIterator();
+        }
+
+        @Override
+        public IntIterator valueIterator() {
+            return new ValueIterator();
+        }
+
+        @Override
+        public Iterator<ToIntEntry<K>> iterator() {
+            return new EntryIterator();
+        }
+
+        private class KeyIterator implements Iterator<K> {
+            private int i = 0;
+
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public K next() {
+                return ks[i++];
+            }
+        }
+
+        private class ValueIterator implements IntIterator {
+            private int i = 0;
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public int next() {
+                return vs[i++];
+            }
+        }
+
+        private class EntryIterator implements Iterator<ToIntEntry<K>> {
+            private int i = 0;
+            @Override
+            public boolean hasNext() {
+                return i < size;
+            }
+
+            @Override
+            public ToIntEntry<K> next() {
+                return new ReadonlyEntryImpl(i++);
+            }
+        }
+
+        private class ReadonlyEntryImpl implements ToIntEntry<K> {
+            private final int i;
+            private ReadonlyEntryImpl(int i) {
+                this.i = i;
+            }
+            @Override
+            public K getKey() {
+                return ks[i];
+            }
+
+            @Override
+            public int getValue() {
+                return vs[i];
+            }
+        }
+    }
+
+    private static class EmptyReadonly<K> implements ObjectIntRoMap<K> {
+
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return true;
+        }
+
+        @Override
+        public int getOrDefault(K key, int def) {
+            return def;
+        }
+
+        @Override
+        public Iterator<K> keyIterator() {
+            return new Iterator<K>() {
+                @Override
+                public boolean hasNext() {
+                    return false;
+                }
+
+                @Override
+                public K next() {
+                    throw new NoSuchElementException();
+                }
+            };
+        }
+
+        @Override
+        public IntIterator valueIterator() {
+            return new IntIterator() {
+                @Override
+                public boolean hasNext() {
+                    return false;
+                }
+
+                @Override
+                public int next() {
+                    throw new NoSuchElementException();
+                }
+            };
+        }
+
+        @Override
+        public Iterator<ToIntEntry<K>> iterator() {
+            return new Iterator<ToIntEntry<K>>() {
+                @Override
+                public boolean hasNext() {
+                    return false;
+                }
+
+                @Override
+                public ToIntEntry<K> next() {
+                    throw new NoSuchElementException();
+                }
+            };
+        }
+    }
+
 }
